@@ -15,7 +15,7 @@
 // contains next and prev pointers as well as a customer-supplied payload
 // pointer.
 typedef struct ll_node {
-  LLPayload_t     payload;  // customer-supplied payload pointer
+  LinkedListPayload     payload;  // customer-supplied payload pointer
   struct ll_node *next;     // next node in list, or NULL
   struct ll_node *prev;     // prev node in list, or NULL
 } LinkedListNode, *LinkedListNodePtr;

@@ -38,7 +38,7 @@ int main (int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-  cpts = AllocateHashTable(INITIAL_BUCKET_COUNT);
+  cpts = MakeHashTable(INITIAL_BUCKET_COUNT);
   if ((setup = Setup(cpts)) != SETUP_OK) {
     printf("ERROR[%d] in Setup, exiting now.\n", setup);
     return EXIT_FAILURE;
@@ -47,19 +47,19 @@ int main (int argc, char *argv[]) {
   switch (res) {
     case 0:  // create
       CHECK_ARG_COUNT(4)
-      create(&argv[2], &argv[3], cpts);
+      Create(&argv[2], &argv[3], cpts);
       break;
     case 1:  // swapto
       CHECK_ARG_COUNT(3)
-      swapto(&argv[2], cpts);
+      SwapTo(&argv[2], cpts);
       break;
     case 2:  // delete
       CHECK_ARG_COUNT(3)
-      delete(&argv[2], cpts);
+      Delete(&argv[2], cpts);
       break;
     case 3:  // list
       CHECK_ARG_COUNT(2)
-      if (list(cpts) == 0) {
+      if (List(cpts) == 0) {
         printf("There are no stored checkpoints for this dir.\n");
       }
       break;
@@ -112,7 +112,7 @@ static int LoadTable(HashTable cpts) {
   if (DEBUG) {
     printf("\t\tloading table ...\n");
   }
-  if (stat(STORED_CPTS_FILE, &stat) == 0
+  // if (stat(STORED_CPTS_FILE, &stat) == 0
 
   return LOAD_OK;
 }

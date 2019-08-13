@@ -1,14 +1,3 @@
-/*
- * Copyright ©2019 Aaron Johnston.  All rights reserved.  Permission is
- * hereby granted to students registered for University of Washington
- * CSE 333 for use solely during Summer Quarter 2019 for purposes of
- * the course.  No other use, copying, distribution, or modification
- * is permitted without prior written consent. Copyrights for
- * third-party components of this work must be honored.  Instructors
- * interested in reusing these course materials should contact the
- * author.
- */
-
 #ifndef _LINKEDLIST_H_
 #define _LINKEDLIST_H_
 
@@ -16,22 +5,9 @@
 
 #include "CP.h"   // for CPSize_t
 
-// LLPayload type definition:
-// For generality, a payload must be large enough to hold a pointer.
-// If the client's data is no bigger than a pointer, a copy of that
-// data can be stored in the LinkedList, by casting it to the LLPayload
-// type.  Otherwise, a pointer to the client's data is maintained in
-// the list.
-typedef void* LLPayload_t;
+typedef void* LinkedListPayload;
 
-// A LinkedList is a doubly-linked list.  We provide the interface to the
-// LinkedList here; your job is to fill in the implementation holes that we
-// left in LinkedList.c.
-
-// To hide the implementation of LinkedList, we declare the "struct ll_head"
-// structure here, but we *define* the structure in the internal header
-// LinkedList_priv.h. This lets us define a pointer to LinkedList as a new
-// type while leaving the implementation details opaque to the customer.
+// A LinkedList is a doubly-linked list.
 struct ll_head;
 typedef struct ll_head *LinkedList;
 
@@ -39,7 +15,7 @@ typedef struct ll_head *LinkedList;
 // function that does any necessary free-ing of the payload of a linked
 // list node. We invoke the pointed-to function once for each node in
 // the linked list, before the LinkedListPtr itself is freed.
-typedef void(*LLPayloadFreeFnPtr)(LLPayload_t payload);
+typedef void(*LLPayloadFreeFn)(LinkedListPayload payload);
 
 // When sorting a linked list or comparing two elements of a linked list,
 // customers must pass in a comparator function.  The function accepts two
@@ -48,7 +24,7 @@ typedef void(*LLPayloadFreeFnPtr)(LLPayload_t payload);
 //    -1  if payload_a < payload_b
 //     0  if payload_a == payload_b
 //    +1  if payload_a > payload_b
-typedef int(*LLPayloadComparatorFnPtr)(LLPayload_t payload_a, LLPayload_t payload_b);
+typedef int(*LLPayloadCompareFn)(LinkedListPayload payload_a, LinkedListPayload payload_b);
 
 // Allocate and return a new linked list.  The caller takes responsibility for
 // eventually calling FreeLinkedList to free memory associated with the list.
@@ -56,21 +32,21 @@ typedef int(*LLPayloadComparatorFnPtr)(LLPayload_t payload_a, LLPayload_t payloa
 // Arguments: none.
 //
 // Returns: NULL on error, non-NULL on success.
-LinkedList AllocateLinkedList(void);
+LinkedList MakeLinkedList(void);
 
-// Free a linked list that was previously allocated by AllocateLinkedList.
+// Free a linked list after use (not safe after invoking this)
 //
 // Arguments:
 //
 // - list: the linked list to free.  It is unsafe to use "list" after this
 //   function returns.
 //
-// - payload_free_function: a pointer to a payload freeing function; see above
+// - free_payload: a pointer to a payload freeing function; see above
 //   for details on what this is.
 void FreeLinkedList(LinkedList list,
-                    LLPayloadFreeFnPtr payload_free_function);
+                    LLPayloadFreeFn free_payload);
 
-// Return the number of elements in the linked list.
+// Return the number of elements in list.
 //
 // Arguments:
 //
@@ -79,7 +55,7 @@ void FreeLinkedList(LinkedList list,
 // Returns:
 //
 // - list length
-CPSize_t NumElementsInLinkedList(LinkedList list);
+CPSize_t LLSize(LinkedList list);
 
 // Adds a new element to the head of the linked list.
 //
@@ -91,7 +67,7 @@ CPSize_t NumElementsInLinkedList(LinkedList list);
 //   manage the memory of the payload.
 //
 // Returns false on failure, true on success.
-bool PushLinkedList(LinkedList list, LLPayload_t payload);
+bool LLPush(LinkedList list, LinkedListPayload payload);
 
 // Pop an element from the head of the linked list.
 //
@@ -103,7 +79,7 @@ bool PushLinkedList(LinkedList list, LLPayload_t payload);
 //   the payload is returned through this parameter.
 //
 // Returns false on failure, true on success.
-bool PopLinkedList(LinkedList list, LLPayload_t *payload_ptr);
+bool LLPop(LinkedList list, LinkedListPayload *payload_ptr);
 
 // Adds a new element to the tail of the linked list.
 //
@@ -115,7 +91,7 @@ bool PopLinkedList(LinkedList list, LLPayload_t *payload_ptr);
 //   manage the memory of the payload.
 //
 // Returns false on failure, true on success.
-bool AppendLinkedList(LinkedList list, LLPayload_t payload);
+bool LLAppend(LinkedList list, LinkedListPayload payload);
 
 // Pop an element from the tail of the linked list.
 //
@@ -127,7 +103,7 @@ bool AppendLinkedList(LinkedList list, LLPayload_t payload);
 //   the payload is returned through this parameter.
 //
 // Returns false on failure, true on success.
-bool SliceLinkedList(LinkedList list, LLPayload_t *payload_ptr);
+bool LLSlice(LinkedList list, LinkedListPayload *payload_ptr);
 
 // Sorts a LinkedList in place.
 //
@@ -139,25 +115,15 @@ bool SliceLinkedList(LinkedList list, LLPayload_t *payload_ptr);
 //
 // - comparator_function:  this argument is a pointer to a payload comparator
 //   function; see above.
-void SortLinkedList(LinkedList list, unsigned int ascending,
-                    LLPayloadComparatorFnPtr comparator_function);
+void LLSort(LinkedList list, unsigned int ascending,
+                    LLPayloadCompareFn comparator_function);
 
-// Linked lists support the notion of an iterator, similar to Java iterators.
-// You use an iterator to navigate back and forth through the linked list and
-// to insert/remove elements from the list.  You use LLMakeIterator() to
-// manufacture a new iterator and LLIteratorFree() to free an iterator when
-// you're done with it.
-//
-// If you use a LinkedList*() function to mutate a linked list, any iterators
-// you have on that list become dangerous to use (so dangerous that arbitrary
-// memory corruption can occur). Thus, you should only use LLIterator*()
-// functions in between the manufacturing and freeing of an iterator.
 struct ll_iter;
 typedef struct ll_iter *LLIter;  // same trick to hide implementation.
 
 // Manufacture an iterator for the list.  Customers can use the iterator to
 // advance forwards or backwards through the list, kind of like a cursor.
-// Caller is responsible for eventually calling LLIteratorFree to free memory
+// Caller is responsible for eventually calling LLIterFree to free memory
 // associated with the iterator.
 //
 // Arguments:
@@ -167,7 +133,7 @@ typedef struct ll_iter *LLIter;  // same trick to hide implementation.
 // - pos: where to start (0 = head, 1 = tail)
 //
 // Returns NULL on failure (out of memory, empty list) or non-NULL on success.
-LLIter LLMakeIterator(LinkedList list, int pos);
+LLIter LLGetIter(LinkedList list, int pos);
 
 // When you're done with an iterator, you must free it by calling this
 // function.
@@ -175,7 +141,7 @@ LLIter LLMakeIterator(LinkedList list, int pos);
 // Arguments:
 //
 // - iter: the iterator to free. Don't use it after freeing it.
-void LLIteratorFree(LLIter iter);
+void LLIterFree(LLIter iter);
 
 // Test whether the iterator can advance forward.
 //
@@ -188,7 +154,7 @@ void LLIteratorFree(LLIter iter);
 // - true if the iterator can advance (is not at tail)
 //
 // - false if the iterator cannot advance (is at the tail)
-bool LLIteratorHasNext(LLIter iter);
+bool LLiterHasNext(LLIter iter);
 
 // Advance the iterator, i.e. move to the next node in the
 // list.
@@ -203,7 +169,7 @@ bool LLIteratorHasNext(LLIter iter);
 //
 // false: if the iterator is at the last node and cannot
 // be advanced
-bool LLIteratorNext(LLIter iter);
+bool LLIterAdvance(LLIter iter);
 
 // Test whether the iterator can advance backwards.
 //
@@ -216,7 +182,7 @@ bool LLIteratorNext(LLIter iter);
 // - true if the iterator can advance (is not at head)
 //
 // - false if the iterator cannot advance (is at the head)
-bool LLIteratorHasPrev(LLIter iter);
+bool LLIterHasPrev(LLIter iter);
 
 // Rewind the iterator, i.e. move to the previous node in the
 // list.
@@ -231,7 +197,7 @@ bool LLIteratorHasPrev(LLIter iter);
 //
 // false: if the iterator is at the first node and cannot be
 // shifted back any more
-bool LLIteratorPrev(LLIter iter);
+bool LLIterBack(LLIter iter);
 
 // Returns the payload of the list node that the iterator currently
 // points at.
@@ -241,7 +207,7 @@ bool LLIteratorPrev(LLIter iter);
 // - iter: the iterator to fetch the payload from.
 //
 // - payload: a "return parameter" through which the payload is returned.
-void LLIteratorGetPayload(LLIter iter, LLPayload_t *payload);
+void LLIterPayload(LLIter iter, LinkedListPayload *payload);
 
 // Delete the node the iterator is pointing to.  After deletion, the iterator:
 //
@@ -257,19 +223,18 @@ void LLIteratorGetPayload(LLIter iter, LLPayload_t *payload);
 //
 // - iter:  the iterator to delete from
 //
-// - payload_free_function: invoked to free the payload
+// - free_payload: invoked to free the payload
 //
 // Returns:
 //
 // - false if the deletion succeeded, but the list is now empty
 //
 // - true if the deletion succeeded, and the list is still non-empty
-bool LLIteratorDelete(LLIter iter,
-                      LLPayloadFreeFnPtr payload_free_function);
+bool LLiterDel(LLIter iter,
+                      LLPayloadFreeFn free_payload);
 
-// Insert an element right before the node that the interator points
-// to.  (If you want to insert at the end of a list, use
-// AppendLinkedList.)
+// Drops an element into the list right before the node
+// which the iterator is currently pointing at.
 //
 // Arguments:
 //
@@ -283,6 +248,6 @@ bool LLIteratorDelete(LLIter iter,
 //
 // - true on success; the iterator still points to the same node,
 //   not to the inserted node.
-bool LLIteratorInsertBefore(LLIter iter, LLPayload_t payload);
+bool LLIteratorInsertBefore(LLIter iter, LinkedListPayload payload);
 
 #endif  // _LINKEDLIST_H_

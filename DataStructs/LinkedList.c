@@ -6,16 +6,13 @@
 #include "LinkedList.h"
 #include "LinkedList_priv.h"
 
-LinkedList AllocateLinkedList(void) {
+LinkedList MakeLinkedList(void) {
   // allocate the linked list record
   LinkedList ll = (LinkedList) malloc(sizeof(LinkedListHead));
   if (ll == NULL) {
     // out of memory
     return (LinkedList) NULL;
   }
-
-  // Step 1.
-  // initialize the newly allocated record structure
 
   ll->head = NULL;
   ll->tail = NULL;
@@ -26,18 +23,14 @@ LinkedList AllocateLinkedList(void) {
 }
 
 void FreeLinkedList(LinkedList list,
-                    LLPayloadFreeFnPtr payload_free_function) {
+                    LLPayloadFreeFn free_payload) {
   // defensive programming: check arguments for sanity.
   assert(list != NULL);
-  assert(payload_free_function != NULL);
-
-  // Step 2.
-  // sweep through the list and free all of the nodes' payloads as
-  // well as the nodes themselves
+  assert(free_payload != NULL);
 
   LinkedListNodePtr old_node;
   while (list->head != NULL) {
-    (*payload_free_function)(list->head->payload);  // free the payload
+    (*free_payload)(list->head->payload);  // free the payload
     old_node = list->head;
     list->head = list->head->next;
     free(old_node);  // free the node
@@ -47,13 +40,13 @@ void FreeLinkedList(LinkedList list,
   free(list);
 }
 
-CPSize_t NumElementsInLinkedList(LinkedList list) {
+CPSize_t LLSize(LinkedList list) {
   // defensive programming: check argument for safety.
   assert(list != NULL);
   return list->ht_size;
 }
 
-bool PushLinkedList(LinkedList list, LLPayload_t payload) {
+bool LLPush(LinkedList list, LinkedListPayload payload) {
   // defensive programming: check argument for safety. The user-supplied
   // argument can be anything, of course, so we need to make sure it's
   // reasonable (e.g., not NULL).
@@ -80,9 +73,6 @@ bool PushLinkedList(LinkedList list, LLPayload_t payload) {
     return true;
   }
 
-  // STEP 3.
-  // typical case; list has >=1 elements
-
   ln->next = list->head;
   ln->prev = NULL;
   list->head->prev = ln;
@@ -93,17 +83,10 @@ bool PushLinkedList(LinkedList list, LLPayload_t payload) {
   return true;
 }
 
-bool PopLinkedList(LinkedList list, LLPayload_t *payload_ptr) {
+bool LLPop(LinkedList list, LinkedListPayload *payload_ptr) {
   // defensive programming.
   assert(payload_ptr != NULL);
   assert(list != NULL);
-
-  // Step 4: implement PopLinkedList.  Make sure you test for
-  // and empty list and fail.  If the list is non-empty, there
-  // are two cases to consider: (a) a list with a single element in it
-  // and (b) the general case of a list with >=2 elements in it.
-  // Be sure to call free() to deallocate the memory that was
-  // previously allocated by PushLinkedList().
 
   if (list->ht_size == 0) {
     return false;
@@ -126,14 +109,9 @@ bool PopLinkedList(LinkedList list, LLPayload_t *payload_ptr) {
   return true;
 }
 
-bool AppendLinkedList(LinkedList list, LLPayload_t payload) {
+bool LLAppend(LinkedList list, LinkedListPayload payload) {
   // defensive programming: check argument for safety.
   assert(list != NULL);
-
-  // Step 5: implement AppendLinkedList.  It's kind of like
-  // PushLinkedList, but obviously you need to add to the end
-  // instead of the beginning.
-  // allocate space for the new node.
 
   LinkedListNodePtr ln =
     (LinkedListNodePtr) malloc(sizeof(LinkedListNode));
@@ -159,12 +137,10 @@ bool AppendLinkedList(LinkedList list, LLPayload_t payload) {
   return true;
 }
 
-bool SliceLinkedList(LinkedList list, LLPayload_t *payload_ptr) {
+bool LLSlice(LinkedList list, LinkedListPayload *payload_ptr) {
   // defensive programming.
   assert(payload_ptr != NULL);
   assert(list != NULL);
-
-  // Step 6: implement SliceLinkedList.
 
   if (list->ht_size < 1) {
     return false;
@@ -187,8 +163,8 @@ bool SliceLinkedList(LinkedList list, LLPayload_t *payload_ptr) {
   return true;
 }
 
-void SortLinkedList(LinkedList list, unsigned int ascending,
-                    LLPayloadComparatorFnPtr comparator_function) {
+void LLSort(LinkedList list, unsigned int ascending,
+                    LLPayloadCompareFn comparator_function) {
   assert(list != NULL);  // defensive programming
   if (list->ht_size < 2) {
     // no sorting needed
@@ -210,7 +186,7 @@ void SortLinkedList(LinkedList list, unsigned int ascending,
       }
       if (compare_result < 0) {
         // bubble-swap payloads
-        LLPayload_t tmp;
+        LinkedListPayload tmp;
         tmp = curnode->payload;
         curnode->payload = curnode->next->payload;
         curnode->next->payload = tmp;
@@ -221,13 +197,13 @@ void SortLinkedList(LinkedList list, unsigned int ascending,
   } while (swapped);
 }
 
-LLIter LLMakeIterator(LinkedList list, int pos) {
+LLIter LLGetIter(LinkedList list, int pos) {
   // defensive programming
   assert(list != NULL);
   assert((pos == 0) || (pos == 1));
 
   // if the list is empty, return failure.
-  if (NumElementsInLinkedList(list) == 0U)
+  if (LLSize(list) == 0U)
     return NULL;
 
   // OK, let's manufacture an iterator.
@@ -249,13 +225,13 @@ LLIter LLMakeIterator(LinkedList list, int pos) {
   return li;
 }
 
-void LLIteratorFree(LLIter iter) {
+void LLIterFree(LLIter iter) {
   // defensive programming
   assert(iter != NULL);
   free(iter);
 }
 
-bool LLIteratorHasNext(LLIter iter) {
+bool LLiterHasNext(LLIter iter) {
   // defensive programming
   assert(iter != NULL);
   assert(iter->list != NULL);
@@ -268,14 +244,11 @@ bool LLIteratorHasNext(LLIter iter) {
   return true;  // yes
 }
 
-bool LLIteratorNext(LLIter iter) {
+bool LLIterAdvance(LLIter iter) {
   // defensive programming
   assert(iter != NULL);
   assert(iter->list != NULL);
   assert(iter->node != NULL);
-
-  // Step 7: if there is another node beyond the iterator, advance to it,
-  // and return true.
 
   if (iter->node->next != NULL) {
     iter->node = iter->node->next;
@@ -286,7 +259,7 @@ bool LLIteratorNext(LLIter iter) {
   return false;
 }
 
-bool LLIteratorHasPrev(LLIter iter) {
+bool LLIterHasPrev(LLIter iter) {
   // defensive programming
   assert(iter != NULL);
   assert(iter->list != NULL);
@@ -299,14 +272,11 @@ bool LLIteratorHasPrev(LLIter iter) {
   return true;  // yes
 }
 
-bool LLIteratorPrev(LLIter iter) {
+bool LLIterBack(LLIter iter) {
   // defensive programming
   assert(iter != NULL);
   assert(iter->list != NULL);
   assert(iter->node != NULL);
-
-  // Step 8:  if there is another node beyond the iterator, advance to it,
-  // and return true.
 
   if (iter->node->prev != NULL) {
     iter->node = iter->node->prev;
@@ -317,7 +287,7 @@ bool LLIteratorPrev(LLIter iter) {
   return false;
 }
 
-void LLIteratorGetPayload(LLIter iter, LLPayload_t *payload) {
+void LLIterPayload(LLIter iter, LinkedListPayload *payload) {
   // defensive programming
   assert(iter != NULL);
   assert(iter->list != NULL);
@@ -327,32 +297,18 @@ void LLIteratorGetPayload(LLIter iter, LLPayload_t *payload) {
   *payload = iter->node->payload;
 }
 
-bool LLIteratorDelete(LLIter iter,
-                      LLPayloadFreeFnPtr payload_free_function) {
+bool LLiterDel(LLIter iter,
+                      LLPayloadFreeFn free_payload) {
   // defensive programming
   assert(iter != NULL);
   assert(iter->list != NULL);
   assert(iter->node != NULL);
 
-  // Step 9: implement LLIteratorDelete.  This is the most
-  // complex function you'll build.  There are several cases
-  // to consider:
-  //
-  // - degenerate case: the list becomes empty after deleting.
-  // - degenerate case: iter points at head
-  // - degenerate case: iter points at tail
-  // - fully general case: iter points in the middle of a list,
-  //                       and you have to "splice".
-  //
-  // Be sure to call the payload_free_function to free the payload
-  // the iterator is pointing to, and also free any LinkedList
-  // data structure element as appropriate.
-
   LinkedListNodePtr old_node = iter->node;  // Used to free old node.
   LinkedList list = iter->list;
   // Regardless of where the node is, we want to use the freeing function
   // on its payload.
-  (*payload_free_function)(iter->node->payload);
+  (*free_payload)(iter->node->payload);
 
   if (list->ht_size == 1) {  // Only one element.
     list->head = list->tail = NULL;
@@ -378,16 +334,16 @@ bool LLIteratorDelete(LLIter iter,
   return list->ht_size == 0 ? false : true;
 }
 
-bool LLIteratorInsertBefore(LLIter iter, LLPayload_t payload) {
+bool LLIteratorInsertBefore(LLIter iter, LinkedListPayload payload) {
   // defensive programming
   assert(iter != NULL);
   assert(iter->list != NULL);
   assert(iter->node != NULL);
 
   // If the cursor is pointing at the head, use our
-  // PushLinkedList function.
+  // LLPush function.
   if (iter->node == iter->list->head) {
-    return PushLinkedList(iter->list, payload);
+    return LLPush(iter->list, payload);
   }
 
   // General case: we have to do some splicing.

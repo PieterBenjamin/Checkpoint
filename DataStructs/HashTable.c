@@ -12,7 +12,7 @@
 static void ResizeHashtable(HashTable ht);
 
 // a free function that does nothing
-static void LLNullFree(LLPayload_t freeme) { }
+static void LLNullFree(LinkedListPayload freeme) { }
 static void HTNullFree(HashTabVal_t freeme) { }
 
 // Helper method which searches through a LL fora specific key.
@@ -75,7 +75,7 @@ HashTable MakeHashTable(CPSize_t bucket_count) {
     return NULL;
   }
   for (i = 0; i < bucket_count; i++) {
-    ht->buckets[i] = AllocateLinkedList();
+    ht->buckets[i] = MakeLinkedList();
     if (ht->buckets[i] == NULL) {
       // allocating one of our bucket chain lists failed,
       // so we need to free everything we allocated so far
@@ -108,8 +108,8 @@ void FreeHashTable(HashTable table,
     HashTabKV *nextKV;
 
     // pop elements off the the chain list, then free the list
-    while (NumElementsInLinkedList(bl) > 0) {
-      assert(PopLinkedList(bl, (LLPayload_t*)&nextKV));
+    while (LLSize(bl) > 0) {
+      assert(LLPop(bl, (LinkedListPayload*)&nextKV));
       free_func(nextKV->value);
       free(nextKV);
     }
@@ -182,7 +182,7 @@ static int InsertHTKVNodeIntoLL(HashTabKV kv_to_insert,
   kv_to_insert_heap->key  = kv_to_insert.key;
   kv_to_insert_heap->value = kv_to_insert.value;
 
-  return PushLinkedList(insertchain, (LLPayload_t *)kv_to_insert_heap) ? 1 : 0;
+  return LLPush(insertchain, (LinkedListPayload *)kv_to_insert_heap) ? 1 : 0;
 }
 
 static HashTabKVPtr search(HashTabKey_t key,
@@ -190,18 +190,18 @@ static HashTabKVPtr search(HashTabKey_t key,
   HashTabKVPtr p;
   LLIter iter = *iter_ptr;
 
-  while (LLIteratorHasNext(iter)) {
+  while (LLiterHasNext(iter)) {
     // *p = iter->node->payload;
-    LLIteratorGetPayload(iter, (LLPayload_t *)&p);
+    LLIterPayload(iter, (LinkedListPayload *)&p);
 
     if (p->key == key) {
       return p;
     }
-    LLIteratorNext(iter);
+    LLIterAdvance(iter);
   }
 
   // Edge case: last element.
-  LLIteratorGetPayload(iter, (LLPayload_t *)&p);
+  LLIterPayload(iter, (LinkedListPayload *)&p);
   if (p->key == key) {
     return p;
   }
@@ -225,7 +225,7 @@ int HTInsert(HashTable table,
   insertbucket = HTKeyToBucket(table, kv_to_insert.key);
   insertchain = table->buckets[insertbucket];
 
-  if (NumElementsInLinkedList(insertchain) == 0) {  // No elems in list.
+  if (LLSize(insertchain) == 0) {  // No elems in list.
     insert_status = (int)InsertHTKVNodeIntoLL(kv_to_insert, &insertchain);
     if (insert_status == 1) {
       table->ht_size = table->ht_size + 1;
@@ -233,7 +233,7 @@ int HTInsert(HashTable table,
     return insert_status;
   }
 
-  LLIter iter = LLMakeIterator(insertchain, 0);
+  LLIter iter = LLGetIter(insertchain, 0);
 
   if (iter == NULL) {  // Out of memory
     return 0;
@@ -273,11 +273,11 @@ int HTLookup(HashTable table,
   insertbucket = HTKeyToBucket(table, key);
   insertchain = table->buckets[insertbucket];
 
-  if (NumElementsInLinkedList(insertchain) == 0) {
+  if (LLSize(insertchain) == 0) {
     return 0;
   }
 
-  LLIter iter = LLMakeIterator(insertchain, 0);
+  LLIter iter = LLGetIter(insertchain, 0);
 
   if (iter == NULL) {  // Out of memory
     return -1;
@@ -313,11 +313,11 @@ int HTRemove(HashTable table,
   insertbucket = HTKeyToBucket(table, key);
   insertchain = table->buckets[insertbucket];
 
-  if (NumElementsInLinkedList(insertchain) == 0) {
+  if (LLSize(insertchain) == 0) {
     return 0;
   }
 
-  LLIter iter = LLMakeIterator(insertchain, 0);
+  LLIter iter = LLGetIter(insertchain, 0);
 
   if (iter == NULL) {  // Out of memory
     return -1;
@@ -331,7 +331,7 @@ int HTRemove(HashTable table,
   }
 
   *keyvalue = *p;
-  LLIteratorDelete(iter, LLNullFree);
+  LLiterDel(iter, LLNullFree);
   table->ht_size = table->ht_size - 1;
   free(p);
   free(iter);
@@ -364,13 +364,13 @@ HTIter MakeHTIter(HashTable table) {
   iter->valid = true;
   iter->ht = table;
   for (i = 0; i < table->bucket_count; i++) {
-    if (NumElementsInLinkedList(table->buckets[i]) > 0) {
+    if (LLSize(table->buckets[i]) > 0) {
       iter->bucket = i;
       break;
     }
   }
   assert(i < table->bucket_count);  // make sure we found it.
-  iter->bucket_iter = LLMakeIterator(table->buckets[iter->bucket], 0UL);
+  iter->bucket_iter = LLGetIter(table->buckets[iter->bucket], 0UL);
   if (iter->bucket_iter == NULL) {
     // out of memory!
     free(iter);
@@ -382,7 +382,7 @@ HTIter MakeHTIter(HashTable table) {
 void DiscardHTIter(HTIter iter) {
   assert(iter != NULL);
   if (iter->bucket_iter != NULL) {
-    LLIteratorFree(iter->bucket_iter);
+    LLIterFree(iter->bucket_iter);
     iter->bucket_iter = NULL;
   }
   iter->valid = false;
@@ -404,17 +404,17 @@ int HTIncrementIter(HTIter iter) {
   }
 
   // Case 1
-  if (LLIteratorHasNext(iter->bucket_iter)) {
-    LLIteratorNext(iter->bucket_iter);
+  if (LLiterHasNext(iter->bucket_iter)) {
+    LLIterAdvance(iter->bucket_iter);
     iter->valid = true;
     return 1;
   }
 
   // Case 2/3
   for (int i = iter->bucket + 1; i < iter->ht->bucket_count; i++) {
-    if (NumElementsInLinkedList(iter->ht->buckets[i]) > 0) {
+    if (LLSize(iter->ht->buckets[i]) > 0) {
       free(iter->bucket_iter);
-      iter->bucket_iter = LLMakeIterator(iter->ht->buckets[i], 0UL);
+      iter->bucket_iter = LLGetIter(iter->ht->buckets[i], 0UL);
 
       assert(iter->bucket_iter != NULL);
 
@@ -442,7 +442,7 @@ int HTIterKV(HTIter iter, HashTabKV *keyvalue) {
     return 0;
   }
 
-  LLIteratorGetPayload(iter->bucket_iter, (LLPayload_t *)&p);
+  LLIterPayload(iter->bucket_iter, (LinkedListPayload *)&p);
   *keyvalue = *p;
 
   return 1;
