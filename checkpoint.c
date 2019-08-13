@@ -1,12 +1,5 @@
 // Copyright 2019, Pieter Benjamin, pieterb@cs.washington.edu
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <ctype.h>
-#include <stdbool.h>
-#include <search.h>
 #include "checkpoint.h"
 
 const char *valid_commands[] = {"create", "swapto", "delete", "list"};
@@ -24,14 +17,23 @@ const char *valid_commands[] = {"create", "swapto", "delete", "list"};
     return EXIT_FAILURE;\
   }
 
+static void CheckMacros() {
+  assert(INVALID_COMMAND < 0);  // Must be neg. since an index is expected.
+  assert(SETUP_OK != SETUP_DIR_ERROR);
+  assert(SETUP_OK != SETUP_TAB_ERROR);
+  assert(LOAD_OK != LOAD_BAD);
+}
+
 int main (int argc, char *argv[]) {
   HashTable cpts;
   int res, setup;
-  if (argc > 4 || argc < 2)  // check valid use
+  if (argc > 4 || argc < 2) {  // check valid use
     Usage();
+  }
 
-  res = IsValidCommand(argv[1]);
-  if (res == -1) {
+  CheckMacros();
+
+  if ((res = IsValidCommand(argv[1])) == INVALID_COMMAND) {
     fprintf(stderr, "invalid command: %s\n", argv[1]);
     return EXIT_FAILURE;
   }
@@ -65,37 +67,78 @@ int main (int argc, char *argv[]) {
       fprintf(stderr, "unknown result %d\n", res);
       return EXIT_FAILURE;
   }
+
+  FreeHashTable(cpts, &free);
+  return EXIT_SUCCESS;
 }
 
 static int Setup(HashTable cpts) {
   if (DEBUG) {
     printf("Setting up working dir (%s)\n", WORKING_DIR);
   }
+  DIR* working_dir;
+  int status;
+
+  working_dir = opendir(WORKING_DIR);
+  if (working_dir) {  // Directory exists
+    if (DEBUG) {
+      printf("\tdir [%s] detected, loading table now ...\n", WORKING_DIR);
+    }
+    return LoadTable(cpts);
+  } else if (errno == ENOENT) {  // Directory does not exist
+    if (DEBUG) {
+      printf("\tdir nonexistent, making right now ...\n");
+    }
+    status = mkdir(WORKING_DIR, S_IRWXU);
+    if (status != 0) {
+      if (DEBUG) {
+        printf("\terror [%d] making working directory\n", errno);
+      }
+      return SETUP_DIR_ERROR;
+    }
+  } else {  // Some other error
+    if (DEBUG) {
+      printf("\topendir(\"%s\") resulted in errno: %d", WORKING_DIR, errno);
+    }
+    
+    return SETUP_DIR_ERROR;
+  }
+
   return SETUP_OK;
 }
 
-static int create(char **checkpointname, char **filename, HashTable cpts) {
+static int LoadTable(HashTable cpts) {
+  struct stat;
+  if (DEBUG) {
+    printf("\t\tloading table ...\n");
+  }
+  if (stat(STORED_CPTS_FILE, &stat) == 0
+
+  return LOAD_OK;
+}
+
+static int Create(char **checkpointname, char **filename, HashTable cpts) {
   if (DEBUG) {
     printf("creating checkpoint %s for %s\n", *checkpointname, *filename);
   }
   return CREATE_OK;
 }
 
-static int swapto(char **checkpointname, HashTable cpts) {
+static int SwapTo(char **checkpointname, HashTable cpts) {
   if (DEBUG) {
     printf("swapping to %s\n", *checkpointname);
   }
   return SWAPTO_OK;
 }
 
-static int delete(char **checkpointname, HashTable cpts) {
+static int Delete(char **checkpointname, HashTable cpts) {
   if (DEBUG) {
     printf("deleting %s\n", *checkpointname);
   }
   return DELETE_OK;
 }
 
-size_t list(HashTable cpts) {
+size_t List(HashTable cpts) {
   size_t num_cpts = 0;
   if (DEBUG) {
     printf("listing\n");
@@ -113,7 +156,7 @@ static int IsValidCommand(char *command) {
       return i;
   }
 
-  return -1;
+  return INVALID_COMMAND;
 }
 
 static void Usage() {
