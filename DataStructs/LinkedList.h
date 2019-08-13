@@ -9,12 +9,12 @@
  * author.
  */
 
-#ifndef _HW1_LINKEDLIST_H_
-#define _HW1_LINKEDLIST_H_
+#ifndef _LINKEDLIST_H_
+#define _LINKEDLIST_H_
 
 #include <stdbool.h>  // for bool type (true, false)
 
-#include "CSE333.h"   // for HWSize_t
+#include "CP.h"   // for CPSize_t
 
 // LLPayload type definition:
 // For generality, a payload must be large enough to hold a pointer.
@@ -79,7 +79,7 @@ void FreeLinkedList(LinkedList list,
 // Returns:
 //
 // - list length
-HWSize_t NumElementsInLinkedList(LinkedList list);
+CPSize_t NumElementsInLinkedList(LinkedList list);
 
 // Adds a new element to the head of the linked list.
 //
@@ -285,4 +285,4 @@ bool LLIteratorDelete(LLIter iter,
 //   not to the inserted node.
 bool LLIteratorInsertBefore(LLIter iter, LLPayload_t payload);
 
-#endif  // _HW1_LINKEDLIST_H_
+#endif  // _LINKEDLIST_H_

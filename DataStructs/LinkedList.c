@@ -1,19 +1,8 @@
-/*
- * Copyright ©2019 Aaron Johnston.  All rights reserved.  Permission is
- * hereby granted to students registered for University of Washington
- * CSE 333 for use solely during Summer Quarter 2019 for purposes of
- * the course.  No other use, copying, distribution, or modification
- * is permitted without prior written consent. Copyrights for
- * third-party components of this work must be honored.  Instructors
- * interested in reusing these course materials should contact the
- * author.
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
 
-#include "CSE333.h"
+#include "CP.h"
 #include "LinkedList.h"
 #include "LinkedList_priv.h"
 
@@ -30,7 +19,7 @@ LinkedList AllocateLinkedList(void) {
 
   ll->head = NULL;
   ll->tail = NULL;
-  ll->num_elements = 0;
+  ll->ht_size = 0;
 
   // return our newly minted linked list
   return ll;
@@ -58,10 +47,10 @@ void FreeLinkedList(LinkedList list,
   free(list);
 }
 
-HWSize_t NumElementsInLinkedList(LinkedList list) {
+CPSize_t NumElementsInLinkedList(LinkedList list) {
   // defensive programming: check argument for safety.
   assert(list != NULL);
-  return list->num_elements;
+  return list->ht_size;
 }
 
 bool PushLinkedList(LinkedList list, LLPayload_t payload) {
@@ -81,13 +70,13 @@ bool PushLinkedList(LinkedList list, LLPayload_t payload) {
   // set the payload
   ln->payload = payload;
 
-  if (list->num_elements == 0) {
+  if (list->ht_size == 0) {
     // degenerate case; list is currently empty
     assert(list->head == NULL);  // debugging aid
     assert(list->tail == NULL);  // debugging aid
     ln->next = ln->prev = NULL;
     list->head = list->tail = ln;
-    list->num_elements = 1U;
+    list->ht_size = 1U;
     return true;
   }
 
@@ -98,7 +87,7 @@ bool PushLinkedList(LinkedList list, LLPayload_t payload) {
   ln->prev = NULL;
   list->head->prev = ln;
   list->head = ln;
-  list->num_elements = list->num_elements + 1;
+  list->ht_size = list->ht_size + 1;
 
   // return success
   return true;
@@ -116,14 +105,14 @@ bool PopLinkedList(LinkedList list, LLPayload_t *payload_ptr) {
   // Be sure to call free() to deallocate the memory that was
   // previously allocated by PushLinkedList().
 
-  if (list->num_elements == 0) {
+  if (list->ht_size == 0) {
     return false;
   }
 
   *payload_ptr = list->head->payload;
   LinkedListNodePtr old_node = list->head;
 
-  if (list->num_elements == 1) {  // case a
+  if (list->ht_size == 1) {  // case a
     list->head = NULL;
     list->tail = NULL;
   } else {  // case b (>=2 elements)
@@ -131,7 +120,7 @@ bool PopLinkedList(LinkedList list, LLPayload_t *payload_ptr) {
     list->head->prev = NULL;
   }
 
-  list->num_elements = list->num_elements - 1;
+  list->ht_size = list->ht_size - 1;
   free(old_node);
 
   return true;
@@ -156,7 +145,7 @@ bool AppendLinkedList(LinkedList list, LLPayload_t payload) {
   // set the fields of new node
   ln->payload = payload;
   ln->next = NULL;
-  if (list->num_elements < 1) {
+  if (list->ht_size < 1) {
     ln->prev = NULL;
     list->head = ln;
   } else {
@@ -165,7 +154,7 @@ bool AppendLinkedList(LinkedList list, LLPayload_t payload) {
   }
 
   list->tail = ln;
-  list->num_elements = list->num_elements + 1;
+  list->ht_size = list->ht_size + 1;
 
   return true;
 }
@@ -177,20 +166,20 @@ bool SliceLinkedList(LinkedList list, LLPayload_t *payload_ptr) {
 
   // Step 6: implement SliceLinkedList.
 
-  if (list->num_elements < 1) {
+  if (list->ht_size < 1) {
     return false;
   }
 
   *payload_ptr = list->tail->payload;
   LinkedListNodePtr old_node = list->tail;
 
-  if (list->num_elements == 1) {
+  if (list->ht_size == 1) {
     list->head = list->tail = NULL;
-    list->num_elements = 0;
+    list->ht_size = 0;
   } else {
     list->tail = old_node->prev;
     list->tail->next = NULL;
-    list->num_elements = list->num_elements - 1;
+    list->ht_size = list->ht_size - 1;
   }
 
   free(old_node);
@@ -201,7 +190,7 @@ bool SliceLinkedList(LinkedList list, LLPayload_t *payload_ptr) {
 void SortLinkedList(LinkedList list, unsigned int ascending,
                     LLPayloadComparatorFnPtr comparator_function) {
   assert(list != NULL);  // defensive programming
-  if (list->num_elements < 2) {
+  if (list->ht_size < 2) {
     // no sorting needed
     return;
   }
@@ -365,7 +354,7 @@ bool LLIteratorDelete(LLIter iter,
   // on its payload.
   (*payload_free_function)(iter->node->payload);
 
-  if (list->num_elements == 1) {  // Only one element.
+  if (list->ht_size == 1) {  // Only one element.
     list->head = list->tail = NULL;
     iter->node = NULL;
   } else if (old_node == list->head) {  // Iter is at the head.
@@ -382,11 +371,11 @@ bool LLIteratorDelete(LLIter iter,
     iter->node = old_node->next;
   }
 
-  list->num_elements = list->num_elements - 1;
+  list->ht_size = list->ht_size - 1;
 
   free(old_node);
 
-  return list->num_elements == 0 ? false : true;
+  return list->ht_size == 0 ? false : true;
 }
 
 bool LLIteratorInsertBefore(LLIter iter, LLPayload_t payload) {
@@ -412,6 +401,6 @@ bool LLIteratorInsertBefore(LLIter iter, LLPayload_t payload) {
   newnode->prev = iter->node->prev;
   newnode->prev->next = newnode;
   newnode->next->prev = newnode;
-  iter->list->num_elements += 1;
+  iter->list->ht_size += 1;
   return true;
 }

@@ -1,18 +1,7 @@
-/*
- * Copyright ©2019 Aaron Johnston.  All rights reserved.  Permission is
- * hereby granted to students registered for University of Washington
- * CSE 333 for use solely during Summer Quarter 2019 for purposes of
- * the course.  No other use, copying, distribution, or modification
- * is permitted without prior written consent. Copyrights for
- * third-party components of this work must be honored.  Instructors
- * interested in reusing these course materials should contact the
- * author.
- */
+#ifndef _LINKEDLIST_PRIV_H_
+#define _LINKEDLIST_PRIV_H_
 
-#ifndef _HW1_LINKEDLIST_PRIV_H_
-#define _HW1_LINKEDLIST_PRIV_H_
-
-#include "./CSE333.h"      // for HWSize_t
+#include "./CP.h"      // for CPSize_t
 #include "./LinkedList.h"  // for LinkedList and LLIter
 
 // This file defines the internal structures associated with our LinkedList
@@ -35,7 +24,7 @@ typedef struct ll_node {
 // declaration (but not definition) in LinkedList.h; this is the associated
 // definition.  This struct contains metadata about the linked list.
 typedef struct ll_head {
-  HWSize_t          num_elements;  //  # elements in the list
+  CPSize_t          ht_size;  //  # elements in the list
   LinkedListNodePtr head;  // head of linked list, or NULL if empty
   LinkedListNodePtr tail;  // tail of linked list, or NULL if empty
 } LinkedListHead;
@@ -48,4 +37,4 @@ typedef struct ll_iter {
   LinkedListNodePtr node;  // the node we are at, or NULL if broken
 } LLIterSt;
 
-#endif  // _HW1_LINKEDLIST_PRIV_H_
+#endif  // _LINKEDLIST_PRIV_H_

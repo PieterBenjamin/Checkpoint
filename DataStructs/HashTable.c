@@ -1,20 +1,9 @@
-/*
- * Copyright ©2019 Aaron Johnston.  All rights reserved.  Permission is
- * hereby granted to students registered for University of Washington
- * CSE 333 for use solely during Summer Quarter 2019 for purposes of
- * the course.  No other use, copying, distribution, or modification
- * is permitted without prior written consent. Copyrights for
- * third-party components of this work must be honored.  Instructors
- * interested in reusing these course materials should contact the
- * author.
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <assert.h>
 
-#include "CSE333.h"
+#include "CP.h"
 #include "HashTable.h"
 #include "HashTable_priv.h"
 
@@ -24,7 +13,7 @@ static void ResizeHashtable(HashTable ht);
 
 // a free function that does nothing
 static void LLNullFree(LLPayload_t freeme) { }
-static void HTNullFree(HTValue_t freeme) { }
+static void HTNullFree(HashTabVal_t freeme) { }
 
 // Helper method which searches through a LL fora specific key.
 //
@@ -36,36 +25,36 @@ static void HTNullFree(HTValue_t freeme) { }
 //
 // Returns:
 //
-// - A ptr to the HTKeyValue which possesses the desired key (if it exists in
+// - A ptr to the HashTabKV which possesses the desired key (if it exists in
 //   the LinkedList *iter_ptr is iterating through).
 //
 // - NULL otherwise.
-static HTKeyValuePtr search(HTKey_t key,
+static HashTabKVPtr search(HashTabKey_t key,
                             LLIter *iter_ptr);
 
 
-// Inserts a HTKeyValue into the specified Linked List.
+// Inserts a HashTabKV into the specified Linked List.
 //
 // Arguments:
 //
-// - newkeyvalue: The HTKeyValue to insert.
+// - kv_to_insert: The HashTabKV to insert.
 //
-// - insertchain_ptr: A pointer to the LL to insert the HTKeyValue into.
+// - insertchain_ptr: A pointer to the LL to insert the HashTabKV into.
 //
 // Returns:
 //
 // - 0: If any memory error occurs.
 //
 // - 1: If insertion was successful.
-static int InsertHTKVNodeIntoLL(HTKeyValue newkeyvalue,
+static int InsertHTKVNodeIntoLL(HashTabKV kv_to_insert,
                                 LinkedList *insertchain_ptr);
 
-HashTable AllocateHashTable(HWSize_t num_buckets) {
+HashTable MakeHashTable(CPSize_t bucket_count) {
   HashTable ht;
-  HWSize_t  i;
+  CPSize_t  i;
 
   // defensive programming
-  if (num_buckets == 0) {
+  if (bucket_count == 0) {
     return NULL;
   }
 
@@ -76,16 +65,16 @@ HashTable AllocateHashTable(HWSize_t num_buckets) {
   }
 
   // initialize the record
-  ht->num_buckets = num_buckets;
-  ht->num_elements = 0;
+  ht->bucket_count = bucket_count;
+  ht->ht_size = 0;
   ht->buckets =
-    (LinkedList *) malloc(num_buckets * sizeof(LinkedList));
+    (LinkedList *) malloc(bucket_count * sizeof(LinkedList));
   if (ht->buckets == NULL) {
     // make sure we don't leak!
     free(ht);
     return NULL;
   }
-  for (i = 0; i < num_buckets; i++) {
+  for (i = 0; i < bucket_count; i++) {
     ht->buckets[i] = AllocateLinkedList();
     if (ht->buckets[i] == NULL) {
       // allocating one of our bucket chain lists failed,
@@ -94,7 +83,7 @@ HashTable AllocateHashTable(HWSize_t num_buckets) {
       // we know the chains are empty, we'll pass in a
       // free function pointer that does nothing; it should
       // never be called.
-      HWSize_t j;
+      CPSize_t j;
       for (j = 0; j < i; j++) {
         FreeLinkedList(ht->buckets[j], LLNullFree);
       }
@@ -108,20 +97,20 @@ HashTable AllocateHashTable(HWSize_t num_buckets) {
 }
 
 void FreeHashTable(HashTable table,
-                   ValueFreeFnPtr value_free_function) {
-  HWSize_t i;
+                   ValueFreeFnPtr free_func) {
+  CPSize_t i;
 
   assert(table != NULL);  // be defensive
 
   // loop through and free the chains on each bucket
-  for (i = 0; i < table->num_buckets; i++) {
+  for (i = 0; i < table->bucket_count; i++) {
     LinkedList  bl = table->buckets[i];
-    HTKeyValue *nextKV;
+    HashTabKV *nextKV;
 
     // pop elements off the the chain list, then free the list
     while (NumElementsInLinkedList(bl) > 0) {
       assert(PopLinkedList(bl, (LLPayload_t*)&nextKV));
-      value_free_function(nextKV->value);
+      free_func(nextKV->value);
       free(nextKV);
     }
     // the chain list is empty, so we can pass in the
@@ -135,12 +124,12 @@ void FreeHashTable(HashTable table,
   free(table);
 }
 
-HWSize_t NumElementsInHashTable(HashTable table) {
+CPSize_t NumElementsInHashTable(HashTable table) {
   assert(table != NULL);
-  return table->num_elements;
+  return table->ht_size;
 }
 
-HTKey_t FNVHash64(unsigned char *buffer, HWSize_t len) {
+HashTabKey_t HashFunc(unsigned char *buffer, CPSize_t len) {
   // This code is adapted from code by Landon Curt Noll
   // and Bonelli Nicola:
   //
@@ -164,7 +153,7 @@ HTKey_t FNVHash64(unsigned char *buffer, HWSize_t len) {
   return hval;
 }
 
-HTKey_t FNVHashInt64(HTValue_t hashval) {
+HashTabKey_t HashInt64(HashTabVal_t hashval) {
   unsigned char buf[8];
   int i;
   uint64_t hashme = (uint64_t)hashval;
@@ -173,32 +162,32 @@ HTKey_t FNVHashInt64(HTValue_t hashval) {
     buf[i] = (unsigned char) (hashme & 0x00000000000000FFULL);
     hashme >>= 8;
   }
-  return FNVHash64(buf, 8);
+  return HashFunc(buf, 8);
 }
 
-HWSize_t HashKeyToBucketNum(HashTable ht, HTKey_t key) {
-  return key % ht->num_buckets;
+CPSize_t HTKeyToBucket(HashTable ht, HashTabKey_t key) {
+  return key % ht->bucket_count;
 }
 
-static int InsertHTKVNodeIntoLL(HTKeyValue newkeyvalue,
+static int InsertHTKVNodeIntoLL(HashTabKV kv_to_insert,
                                 LinkedList *insertchain_ptr) {
   LinkedList insertchain = *insertchain_ptr;
-  HTKeyValuePtr newkeyvalue_heap;
+  HashTabKVPtr kv_to_insert_heap;
 
-  newkeyvalue_heap = (HTKeyValuePtr)(malloc(sizeof(HTKeyValue)));
-  if (newkeyvalue_heap == NULL) {
+  kv_to_insert_heap = (HashTabKVPtr)(malloc(sizeof(HashTabKV)));
+  if (kv_to_insert_heap == NULL) {
     return 0;
   }
 
-  newkeyvalue_heap->key  = newkeyvalue.key;
-  newkeyvalue_heap->value = newkeyvalue.value;
+  kv_to_insert_heap->key  = kv_to_insert.key;
+  kv_to_insert_heap->value = kv_to_insert.value;
 
-  return PushLinkedList(insertchain, (LLPayload_t *)newkeyvalue_heap) ? 1 : 0;
+  return PushLinkedList(insertchain, (LLPayload_t *)kv_to_insert_heap) ? 1 : 0;
 }
 
-static HTKeyValuePtr search(HTKey_t key,
+static HashTabKVPtr search(HashTabKey_t key,
                             LLIter *iter_ptr) {
-  HTKeyValuePtr p;
+  HashTabKVPtr p;
   LLIter iter = *iter_ptr;
 
   while (LLIteratorHasNext(iter)) {
@@ -220,12 +209,12 @@ static HTKeyValuePtr search(HTKey_t key,
   return NULL;  // Key not found.
 }
 
-int InsertHashTable(HashTable table,
-                    HTKeyValue newkeyvalue,
-                    HTKeyValue *oldkeyvalue) {
-  HWSize_t insertbucket;
+int HTInsert(HashTable table,
+                    HashTabKV kv_to_insert,
+                    HashTabKV *old_kv_storage) {
+  CPSize_t insertbucket;
   LinkedList insertchain;
-  HTKeyValuePtr p;
+  HashTabKVPtr p;
   int insert_status;
 
   assert(table != NULL);
@@ -233,20 +222,13 @@ int InsertHashTable(HashTable table,
 
   // calculate which bucket we're inserting into,
   // grab its linked list chain
-  insertbucket = HashKeyToBucketNum(table, newkeyvalue.key);
+  insertbucket = HTKeyToBucket(table, kv_to_insert.key);
   insertchain = table->buckets[insertbucket];
 
-  // Step 1 -- finish the implementation of InsertHashTable.
-  // This is a fairly complex task, so you might decide you want
-  // to define/implement a helper function that helps you find
-  // and optionally remove a key within a chain, rather than putting
-  // all that logic inside here.  You might also find that your helper
-  // can be reused in steps 2 and 3.
-
   if (NumElementsInLinkedList(insertchain) == 0) {  // No elems in list.
-    insert_status = (int)InsertHTKVNodeIntoLL(newkeyvalue, &insertchain);
+    insert_status = (int)InsertHTKVNodeIntoLL(kv_to_insert, &insertchain);
     if (insert_status == 1) {
-      table->num_elements = table->num_elements + 1;
+      table->ht_size = table->ht_size + 1;
     }
     return insert_status;
   }
@@ -257,40 +239,38 @@ int InsertHashTable(HashTable table,
     return 0;
   }
 
-  p = search(newkeyvalue.key, &iter);
+  p = search(kv_to_insert.key, &iter);
 
   if (p == NULL) {  // Elems in list, but none with the key we have.
     free(iter);
-    insert_status = (int)InsertHTKVNodeIntoLL(newkeyvalue, &insertchain);
+    insert_status = (int)InsertHTKVNodeIntoLL(kv_to_insert, &insertchain);
     if (insert_status == 1) {
-      table->num_elements = table->num_elements + 1;
+      table->ht_size = table->ht_size + 1;
     }
     return insert_status;
   }
 
   // There were values in the list, and the list had our desired key.
-  *oldkeyvalue = *p;
-  p->value = newkeyvalue.value;
+  *old_kv_storage = *p;
+  p->value = kv_to_insert.value;
   free(iter);
   return 2;
 }
 
-int LookupHashTable(HashTable table,
-                    HTKey_t key,
-                    HTKeyValue *keyvalue) {
+int HTLookup(HashTable table,
+                    HashTabKey_t key,
+                    HashTabKV *keyvalue) {
   assert(table != NULL);
-  HTKeyValuePtr p;
+  HashTabKVPtr p;
 
-  // Step 2 -- implement LookupHashTable.
-
-  HWSize_t insertbucket;
+  CPSize_t insertbucket;
   LinkedList insertchain;
 
   assert(table != NULL);
 
   // calculate which bucket we're inserting into,
   // grab its linked list chain
-  insertbucket = HashKeyToBucketNum(table, key);
+  insertbucket = HTKeyToBucket(table, key);
   insertchain = table->buckets[insertbucket];
 
   if (NumElementsInLinkedList(insertchain) == 0) {
@@ -316,24 +296,22 @@ int LookupHashTable(HashTable table,
   return 1;
 }
 
-int RemoveFromHashTable(HashTable table,
-                        HTKey_t key,
-                        HTKeyValue *keyvalue) {
+int HTRemove(HashTable table,
+                        HashTabKey_t key,
+                        HashTabKV *keyvalue) {
   assert(table != NULL);
-  HTKeyValuePtr p;
+  HashTabKVPtr p;
 
 
-  HWSize_t insertbucket;
+  CPSize_t insertbucket;
   LinkedList insertchain;
 
   assert(table != NULL);
 
   // calculate which bucket we're inserting into,
   // grab its linked list chain
-  insertbucket = HashKeyToBucketNum(table, key);
+  insertbucket = HTKeyToBucket(table, key);
   insertchain = table->buckets[insertbucket];
-
-  // Step 3 -- implement RemoveFromHashTable.
 
   if (NumElementsInLinkedList(insertchain) == 0) {
     return 0;
@@ -354,15 +332,15 @@ int RemoveFromHashTable(HashTable table,
 
   *keyvalue = *p;
   LLIteratorDelete(iter, LLNullFree);
-  table->num_elements = table->num_elements - 1;
+  table->ht_size = table->ht_size - 1;
   free(p);
   free(iter);
   return 1;
 }
 
-HTIter HashTableMakeIterator(HashTable table) {
+HTIter MakeHTIter(HashTable table) {
   HTIterRecord *iter;
-  HWSize_t      i;
+  CPSize_t      i;
 
   assert(table != NULL);  // be defensive
 
@@ -374,26 +352,26 @@ HTIter HashTableMakeIterator(HashTable table) {
 
   // if the hash table is empty, the iterator is immediately invalid,
   // since it can't point to anything.
-  if (table->num_elements == 0) {
-    iter->is_valid = false;
+  if (table->ht_size == 0) {
+    iter->valid = false;
     iter->ht = table;
-    iter->bucket_it = NULL;
+    iter->bucket_iter = NULL;
     return iter;
   }
 
   // initialize the iterator.  there is at least one element in the
   // table, so find the first element and point the iterator at it.
-  iter->is_valid = true;
+  iter->valid = true;
   iter->ht = table;
-  for (i = 0; i < table->num_buckets; i++) {
+  for (i = 0; i < table->bucket_count; i++) {
     if (NumElementsInLinkedList(table->buckets[i]) > 0) {
-      iter->bucket_num = i;
+      iter->bucket = i;
       break;
     }
   }
-  assert(i < table->num_buckets);  // make sure we found it.
-  iter->bucket_it = LLMakeIterator(table->buckets[iter->bucket_num], 0UL);
-  if (iter->bucket_it == NULL) {
+  assert(i < table->bucket_count);  // make sure we found it.
+  iter->bucket_iter = LLMakeIterator(table->buckets[iter->bucket], 0UL);
+  if (iter->bucket_iter == NULL) {
     // out of memory!
     free(iter);
     return NULL;
@@ -401,101 +379,94 @@ HTIter HashTableMakeIterator(HashTable table) {
   return iter;
 }
 
-void HTIteratorFree(HTIter iter) {
+void DiscardHTIter(HTIter iter) {
   assert(iter != NULL);
-  if (iter->bucket_it != NULL) {
-    LLIteratorFree(iter->bucket_it);
-    iter->bucket_it = NULL;
+  if (iter->bucket_iter != NULL) {
+    LLIteratorFree(iter->bucket_iter);
+    iter->bucket_iter = NULL;
   }
-  iter->is_valid = false;
+  iter->valid = false;
   free(iter);
 }
 
-int HTIteratorNext(HTIter iter) {
+int HTIncrementIter(HTIter iter) {
   assert(iter != NULL);
 
-  // Step 4 -- implement HTIteratorNext.
-
-  assert(iter->bucket_it != NULL);
+  assert(iter->bucket_iter != NULL);
 
   // There are 3 cases to consider
   // 1. There is a next node in the LL (trivial)
   // 2. There are no more nodes in the LL but there is another nonempty bucket
   // 3. There are no more nodes in the LL and there are no more nonempty buckets
   if (NumElementsInHashTable(iter->ht) == 0) {
-    iter->is_valid = false;
+    iter->valid = false;
     return 0;
   }
 
   // Case 1
-  if (LLIteratorHasNext(iter->bucket_it)) {
-    LLIteratorNext(iter->bucket_it);
-    iter->is_valid = true;
+  if (LLIteratorHasNext(iter->bucket_iter)) {
+    LLIteratorNext(iter->bucket_iter);
+    iter->valid = true;
     return 1;
   }
 
   // Case 2/3
-  for (int i = iter->bucket_num + 1; i < iter->ht->num_buckets; i++) {
+  for (int i = iter->bucket + 1; i < iter->ht->bucket_count; i++) {
     if (NumElementsInLinkedList(iter->ht->buckets[i]) > 0) {
-      free(iter->bucket_it);
-      iter->bucket_it = LLMakeIterator(iter->ht->buckets[i], 0UL);
+      free(iter->bucket_iter);
+      iter->bucket_iter = LLMakeIterator(iter->ht->buckets[i], 0UL);
 
-      assert(iter->bucket_it != NULL);
+      assert(iter->bucket_iter != NULL);
 
-      iter->bucket_num = i;
+      iter->bucket = i;
       return 1;
     }
   }
 
-  iter->bucket_num = iter->ht->num_buckets + 1;
-  iter->is_valid = false;
+  iter->bucket = iter->ht->bucket_count + 1;
+  iter->valid = false;
   return 0;
 }
 
-int HTIteratorPastEnd(HTIter iter) {
+int HTIterValid(HTIter iter) {
   assert(iter != NULL);
-
-  // Step 5 -- implement HTIteratorPastEnd.
-
-  return iter->is_valid ? 0 : 1;
+  return iter->valid ? 0 : 1;
 }
 
-int HTIteratorGet(HTIter iter, HTKeyValue *keyvalue) {
+int HTIterKV(HTIter iter, HashTabKV *keyvalue) {
   assert(iter != NULL);
 
-  // Step 6 -- implement HTIteratorGet.
+  HashTabKVPtr p;
 
-  HTKeyValuePtr p;
-
-  if (!(iter->is_valid) | (NumElementsInHashTable(iter->ht) == 0)) {
+  if (!(iter->valid) | (NumElementsInHashTable(iter->ht) == 0)) {
     return 0;
   }
 
-  LLIteratorGetPayload(iter->bucket_it, (LLPayload_t *)&p);
+  LLIteratorGetPayload(iter->bucket_iter, (LLPayload_t *)&p);
   *keyvalue = *p;
 
   return 1;
 }
 
-int HTIteratorDelete(HTIter iter, HTKeyValue *keyvalue) {
-  HTKeyValue kv;
+int HTIterDel(HTIter iter, HashTabKV *keyvalue) {
+  HashTabKV kv;
   int res, retval;
 
   assert(iter != NULL);
 
   // Try to get what the iterator is pointing to.
-  res = HTIteratorGet(iter, &kv);
+  res = HTIterKV(iter, &kv);
   if (res == 0)
     return 0;
 
   // Advance the iterator.
-  res = HTIteratorNext(iter);
+  res = HTIncrementIter(iter);
   if (res == 0) {
     retval = 2;
   } else {
     retval = 1;
   }
-  res = RemoveFromHashTable(iter->ht, kv.key, keyvalue);
+  res = HTRemove(iter->ht, kv.key, keyvalue);
   assert(res == 1);
   assert(kv.key == keyvalue->key);
   assert(kv.value == keyvalue->value);
@@ -505,42 +476,42 @@ int HTIteratorDelete(HTIter iter, HTKeyValue *keyvalue) {
 
 static void ResizeHashtable(HashTable ht) {
   // Resize if the load factor is > 3.
-  if (ht->num_elements < 3 * ht->num_buckets)
+  if (ht->ht_size < 3 * ht->bucket_count)
     return;
 
   // This is the resize case.  Allocate a new hashtable,
   // iterate over the old hashtable, do the surgery on
   // the old hashtable record and free up the new hashtable
   // record.
-  HashTable newht = AllocateHashTable(ht->num_buckets * 9);
+  HashTable newht = MakeHashTable(ht->bucket_count * 9);
 
   // Give up if out of memory.
   if (newht == NULL)
     return;
   // Loop through the old ht with an iterator,
   // inserting into the new HT.
-  HTIter it = HashTableMakeIterator(ht);
+  HTIter it = MakeHTIter(ht);
   if (it == NULL) {
     // Give up if out of memory.
     FreeHashTable(newht, &HTNullFree);
     return;
   }
 
-  while (!HTIteratorPastEnd(it)) {
-    HTKeyValue item, dummy;
+  while (!HTIterValid(it)) {
+    HashTabKV item, dummy;
 
-    assert(HTIteratorGet(it, &item) == 1);
-    if (InsertHashTable(newht, item, &dummy) != 1) {
+    assert(HTIterKV(it, &item) == 1);
+    if (HTInsert(newht, item, &dummy) != 1) {
       // failure, free up everything, return.
-      HTIteratorFree(it);
+      DiscardHTIter(it);
       FreeHashTable(newht, &HTNullFree);
       return;
     }
-    HTIteratorNext(it);
+    HTIncrementIter(it);
   }
 
   // Worked!  Free the iterator.
-  HTIteratorFree(it);
+  DiscardHTIter(it);
 
   // Sneaky: swap the structures, then free the new table,
   // and we're done.

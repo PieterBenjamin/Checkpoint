@@ -24,4 +24,4 @@ exec: checkpoint.o $(DS)
 
 
 clean:
-	rm *.o
+	rm DataStructs/*.o
