@@ -1,23 +1,20 @@
-// Copyright 2019, Pieter Benjamin, pieterb@cs.washington.edu
+// Copyright 2019, Pieter Benjamin, pieter0benjamin@gmail.com
 
 #include "checkpoint.h"
 
-#ifdef DEBUG_
-  #define DEBUG true
-#else
-  #define DEBUG false
-#endif
 #define VALID_COMMAND_COUNT 4
 #define BUFFSIZE 1024  // Hopefully larger than will ever be necessary
-#define INITIAL_BUCKET_COUNT 10
 
 static void CheckMacros() {
   assert(INVALID_COMMAND < 0);  // Must be neg. since an index is expected.
-  assert(SETUP_OK != SETUP_DIR_ERROR);
-  assert(SETUP_OK != SETUP_TAB_ERROR);
-  assert(LOAD_OK != LOAD_BAD);
+  assert(SETUP_SUCCESS != SETUP_DIR_ERROR);
+  assert(SETUP_SUCCESS != SETUP_TAB_ERROR);
+  assert(READ_SUCCESS != READ_ERROR);
 }
 
+/*
+  TODO: store relationships between checkpoints as a tree
+*/
 int main (int argc, char *argv[]) {
   CheckPointLog cpt_log;
   int res, setup;
@@ -34,7 +31,7 @@ int main (int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-  if ((setup = Setup(&cpt_log)) != SETUP_OK) {
+  if ((setup = Setup(&cpt_log)) != SETUP_SUCCESS) {
     printf("ERROR[%d] in Setup, exiting now.\n", setup);
     return EXIT_FAILURE;
   }
@@ -65,7 +62,7 @@ int main (int argc, char *argv[]) {
       return EXIT_FAILURE;
   }
 
-  if ((res = WriteTables(&cpt_log)) != WRITE_OK) {
+  if ((res = WriteCheckPointLog(&cpt_log)) != WRITE_SUCCESS) {
     printf("Error %d writing tables. This dir is now considered corrupted.\n",
            res);
     FreeCheckPointLog(&cpt_log);
@@ -86,7 +83,7 @@ static int Setup(CheckPointLogPtr cpt_log) {
       printf("\tCheckpoint: working dir detected, loading tables . . .\n");
     }
 
-    return LoadTables(cpt_log) == LOAD_OK ? SETUP_OK : SETUP_TAB_ERROR;
+    return ReadCheckPointLog(cpt_log) == READ_SUCCESS ? SETUP_SUCCESS : SETUP_TAB_ERROR;
   } else if (errno == ENOENT) {  // Directory does not exist
     if (DEBUG) {
       printf("\tworking dir nonexistent, making right now . . .\n");
@@ -99,7 +96,7 @@ static int Setup(CheckPointLogPtr cpt_log) {
       return SETUP_DIR_ERROR;
     }
 
-    return LoadTables(cpt_log) == LOAD_OK ? SETUP_OK : SETUP_TAB_ERROR;
+    return ReadCheckPointLog(cpt_log) == READ_SUCCESS ? SETUP_SUCCESS : SETUP_TAB_ERROR;
   } else {  // Some other error
     if (DEBUG) {
       printf("\topendir(\"%s\") resulted in errno: %d", WORKING_DIR, errno);
@@ -108,32 +105,7 @@ static int Setup(CheckPointLogPtr cpt_log) {
     return SETUP_DIR_ERROR;
   }
 
-  return SETUP_OK;
-}
-
-static int WriteTables(CheckPointLogPtr cpt_log) {
-  // TODO
-  return WRITE_OK;
-}
-
-static int LoadTables(CheckPointLogPtr cpt_log) {
-  struct stat;
-  if (DEBUG) {
-    printf("\t\tloading tables ...\n");
-  }
-
-  cpt_log->src_filehash_to_filename = MakeHashTable(INITIAL_BUCKET_COUNT);
-  cpt_log->src_filehash_to_cptnames = MakeHashTable(INITIAL_BUCKET_COUNT);
-  cpt_log->cpt_namehash_to_cptfilename = MakeHashTable(INITIAL_BUCKET_COUNT);
-
-  if (cpt_log->src_filehash_to_filename == NULL ||
-      cpt_log->src_filehash_to_cptnames == NULL ||
-      cpt_log->cpt_namehash_to_cptfilename == NULL) {
-    return LOAD_BAD;
-  }
-  // if (stat(STORED_CPTS_FILE, &stat) == 0
-
-  return LOAD_OK;
+  return SETUP_SUCCESS;
 }
 
 static int CreateCheckpoint(char *cpt_name,
@@ -208,7 +180,7 @@ static int CreateCheckpoint(char *cpt_name,
                           &storage)), -1, num_attempts)
   if (res == 0) {  // No checkpoint filename mapping exists for the checkpoint!
     if (WriteSrcToCheckpoint(src_filename, cpt_name) != 0) {  // I/O error
-      return CREATE_BAD;
+      return CREATE_CPT_ERROR;
     }
 
     // No I/O error - we can now update our mapping 
@@ -216,64 +188,24 @@ static int CreateCheckpoint(char *cpt_name,
     fprintf(stderr,
            "\tSorry, checkpoint name [%s] already exists. Try another.\n"\
            "\t(maybe %s2)\n", cpt_name, cpt_name);
-    return CREATE_BAD;
+    return CREATE_CPT_ERROR;
   }
 
-  return CREATE_OK;
-}
-
-static int WriteSrcToCheckpoint(char *src_filename, char *cpt_name) {
-  FILE *cpt_file, *src_file;
-  size_t dir_len = strlen(WORKING_DIR), name_len = strlen(cpt_name);
-  char cpt_filename[dir_len + name_len + 2];
-  strcpy(cpt_filename, WORKING_DIR);
-  cpt_filename[dir_len] = '/';
-  cpt_filename[dir_len + 1] = '\0';
-  strcat(cpt_filename, cpt_name);
-
-  if ((cpt_file = fopen(cpt_filename, "ab+")) == NULL) {
-    fprintf(stderr,
-            "\tError creating file %s%s.\n"\
-            "\tAborting program now.\n", WORKING_DIR, cpt_filename);
-    return -2;
-  }
-
-  if ((src_file = fopen(src_filename, "r")) == NULL) {
-    fprintf(stderr,
-            "\tError opening file %s.\n\tProgram will now be aborted.\n",
-            src_filename);
-    return -2;
-  }
-
-  char buffer[1024];
-  size_t bytes;
-
-  if (fseek(src_file, 0, SEEK_SET) != 0) {
-    return -1;
-  }
-  if (fseek(cpt_file, 0, SEEK_SET) != 0) {
-    return -1;
-  }
-  
-  while (0 < (bytes = fread(buffer, 1, sizeof(buffer), src_file))) {
-      fwrite(buffer, 1, bytes, cpt_file);
-  }
-
-  return 0;
+  return CREATE_CPT_SUCCESS;
 }
 
 static int SwapTo(char *cpt_name, CheckPointLogPtr cpt_log) {
   if (DEBUG) {
     printf("swapping to %s\n", cpt_name);
   }
-  return SWAPTO_OK;
+  return SWAPTO_SUCCESS;
 }
 
 static int Delete(char *cpt_name, CheckPointLogPtr cpt_log) {
   if (DEBUG) {
     printf("deleting %s\n", cpt_name);
   }
-  return DELETE_OK;
+  return DELETE_SUCCESS;
 }
 
 static size_t List(CheckPointLogPtr cpt_log) {
