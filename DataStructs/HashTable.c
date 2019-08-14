@@ -124,7 +124,7 @@ void FreeHashTable(HashTable table,
   free(table);
 }
 
-CPSize_t NumElementsInHashTable(HashTable table) {
+CPSize_t HTSize(HashTable table) {
   assert(table != NULL);
   return table->ht_size;
 }
@@ -398,7 +398,7 @@ int HTIncrementIter(HTIter iter) {
   // 1. There is a next node in the LL (trivial)
   // 2. There are no more nodes in the LL but there is another nonempty bucket
   // 3. There are no more nodes in the LL and there are no more nonempty buckets
-  if (NumElementsInHashTable(iter->ht) == 0) {
+  if (HTSize(iter->ht) == 0) {
     iter->valid = false;
     return 0;
   }
@@ -438,7 +438,7 @@ int HTIterKV(HTIter iter, HashTabKV *keyvalue) {
 
   HashTabKVPtr p;
 
-  if (!(iter->valid) | (NumElementsInHashTable(iter->ht) == 0)) {
+  if (!(iter->valid) | (HTSize(iter->ht) == 0)) {
     return 0;
   }
 

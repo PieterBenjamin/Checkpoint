@@ -23,7 +23,7 @@ HashTable MakeHashTable(CPSize_t bucket_count);
 void FreeHashTable(HashTable table, ValueFreeFnPtr free_func);
 
 // Returns the number of elements in the hash table.
-CPSize_t NumElementsInHashTable(HashTable table);
+CPSize_t HTSize(HashTable table);
 
 // HashTables store key/value pairs.  We'll define a key to be an
 // unsigned 64-bit integer; it's up to the customer to figure out how
