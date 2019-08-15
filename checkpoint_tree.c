@@ -127,6 +127,7 @@ int FreeCpTreeNode(CpTreeNodePtr curr_node) {
   if (curr_node == NULL) {
     return TREE_FREE_OK;
   }
+
   free(curr_node->cpt_name);
   if (curr_node->children != NULL) {  // free this nodes children
     FreeLinkedList(curr_node->children, &FreeCpTreeNode);

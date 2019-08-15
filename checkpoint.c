@@ -37,9 +37,7 @@ int main (int argc, char *argv[]) {
   switch (res) {
     case 0:  // create
       CHECK_ARG_COUNT(4)
-      CreateCheckpoint(argv[2],
-                       argv[3],
-                       &cpt_log);
+      CreateCheckpoint(argv[2], argv[3], &cpt_log);
       break;
     case 1:  // swapto
       CHECK_ARG_COUNT(3)
@@ -75,15 +73,17 @@ static int Setup(CheckPointLogPtr cpt_log) {
   if (DEBUG) {
     printf("Setting up working dir . . .\n");
   }
+  DIR *dp;
   int status;
 
-  if (opendir(WORKING_DIR) != NULL) {  // Directory exists
+  if ((dp = opendir(WORKING_DIR)) != NULL) {  // Directory exists
     if (DEBUG) {
       printf("\tCheckpoint: working dir detected, loading tables . . .\n");
     }
-
-    return ReadCheckPointLog(cpt_log) == READ_SUCCESS ? 
+    status = ReadCheckPointLog(cpt_log) == READ_SUCCESS ?
                                                 SETUP_SUCCESS : SETUP_TAB_ERROR;
+    closedir(dp);
+    return status;
   } else if (errno == ENOENT) {  // Directory does not exist
     if (DEBUG) {
       printf("\tworking dir nonexistent, making right now . . .\n");
@@ -114,7 +114,7 @@ static int CreateCheckpoint(char *cpt_name,
                             CheckPointLogPtr cpt_log) {
   HashTabKey_t src_filename_hash = HashFunc((unsigned char *)src_filename,
                                             strlen(src_filename));
-  HashTabKV storage;
+  HashTabKV kv, storage;
   int res;
   ssize_t num_attempts = NUMBER_ATTEMPTS;
 
@@ -166,7 +166,20 @@ static int CreateCheckpoint(char *cpt_name,
       return CREATE_CPT_ERROR;
     }
 
-    // No I/O error - we can now update our mapping 
+    // No I/O error - we can now update our mapping
+    char *src_filename_copy;
+    num_attempts = NUMBER_ATTMEPTS;
+    ATTEMPT((src_filename_copy = malloc(sizeof(char) * (strlen(src_filename) + 1))),
+            NULL,
+            num_attempts)
+    strcpy(src_filename_copy, src_filename);
+
+    kv.key = src_filename_hash;
+    kv.value = src_filename_copy;
+    num_attempts = NUMBER_ATTMEPTS;
+    ATTEMPT((HTInsert(cpt_log->cpt_namehash_to_cptfilename, kv, &storage)),
+            0,
+            num_attempts)
   } else if (res == 1) {  // The client is trying to overwrite data! Stop them!
     fprintf(stderr,
            "\tSorry, checkpoint name [%s] already exists. Try another.\n"\
@@ -246,7 +259,7 @@ static int AddCheckpointNewFile(char *cpt_name,
   keyval.key   = (HashTabKey_t)(src_filename_hash);
   // Add the mapping from source filename hash to source filename
   char *src_name_copy;
-  ATTEMPT((src_name_copy = malloc(sizeof(char) * (strlen(src_filename + 1)))),
+  ATTEMPT((src_name_copy = malloc(sizeof(char) * (strlen(src_filename) + 1))),
             NULL, num_attempts)
   strcpy(src_name_copy, src_filename);
   keyval.value = (HashTabVal_t)(src_name_copy);
@@ -268,7 +281,7 @@ static int AddCheckpointNewFile(char *cpt_name,
   new_tree->parent_node = NULL;
 
   // Now attempt to make space on the heap for a checkpoint name.
-  new_tree->cpt_name = malloc(sizeof(char) * (strlen(cpt_name + 1)));
+  new_tree->cpt_name = malloc(sizeof(char) * (strlen(cpt_name) + 1));
   if (new_tree->cpt_name == NULL) {
     if (DEBUG) {
       printf("Ran out of memory to hold %s\n", cpt_name);
@@ -299,7 +312,7 @@ static int AddCheckpointNewFile(char *cpt_name,
   PREEXISTING("\ta LL of cpts", src_filename, res)
   
   // Store the recorded cpt for the source file
-  keyval.value = (char *)malloc(sizeof(char) * (strlen(cpt_name + 1)));
+  keyval.value = (char *)malloc(sizeof(char) * (strlen(cpt_name) + 1));
   if (keyval.value == NULL) {
     if (DEBUG) {
       printf("Ran out of memory to hold %s\n", cpt_name);
@@ -338,6 +351,17 @@ static size_t List(CheckPointLogPtr cpt_log) {
 }
 
 static void FreeCheckPointLog(CheckPointLogPtr cpt_log) {
+  if (DEBUG) {
+    printf("Freeing tables. num elements:\n"\
+           "\tsrc_filehash_to_filename:    %d\n"\
+           "\tsrc_filehash_to_cptname:     %d\n"\
+           "\tcpt_namehash_to_cptfilename: %d\n"\
+           "\tdir_tree:                    %d\n",
+           HTSize(cpt_log->src_filehash_to_filename),
+           HTSize(cpt_log->src_filehash_to_cptname),
+           HTSize(cpt_log->cpt_namehash_to_cptfilename),
+           HTSize(cpt_log->dir_tree));
+  }
   FreeHashTable(cpt_log->src_filehash_to_filename, &free);
   FreeHashTable(cpt_log->src_filehash_to_cptname, &free);
   FreeHashTable(cpt_log->cpt_namehash_to_cptfilename, &free);
