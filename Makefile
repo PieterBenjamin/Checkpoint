@@ -2,7 +2,7 @@
 
 CCOMP = gcc -Wall -g -std=c11
 
-DS = hashtable.o LinkedList.o
+DS = HashTable.o LinkedList.o
 
 all: linkedlist hashtable checkpoint exec clean 
 
