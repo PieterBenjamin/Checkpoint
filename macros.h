@@ -15,7 +15,7 @@
 
 #define STORED_CPTS_FILE "./.cpt_bkpng/strd_cpts"
 #define WORKING_DIR "./.cpt_"
-#define NUMBER_ATTMEPTS 20 // Number of times to try again on an out-of-mem err
+#define NUMBER_ATTEMPTS 20 // Number of times to try again on an out-of-mem err
 #ifdef DEBUG_
   #define DEBUG true
 #else
@@ -46,7 +46,7 @@
     if (!num_attempts_left) { return MEM_ERR; }\
     num_attempts_left--;\
   }\
-  num_attempts_left = NUMBER_ATTMEPTS;
+  num_attempts_left = NUMBER_ATTEMPTS;
 // Used when an implication that should have been true
 // ends up false.
 #define PREEXISTING(msg, name, res)\

@@ -2,14 +2,19 @@
 
 #include "checkpoint_tree.h"
 
-int CreateCpTreeNode(CpTreeNodePtr cpt_node,
-                     char *cpt_name,
-                     CpTreeNodePtr parent_node) {
-  int num_attempts = NUMBER_ATTMEPTS;
-  cpt_node->parent_node = parent_node;
-  cpt_node->cpt_name    = cpt_name;
+int CreateCpTreeNode(char *cpt_name,
+                     CpTreeNodePtr parent_node,
+                     CpTreeNodePtr ret) {
+  CpTreeNodePtr new_node;
 
-  ATTEMPT((cpt_node->children = MakeLinkedList()), NULL, num_attempts)
+  int num_attempts = NUMBER_ATTEMPTS;
+  ATTEMPT((new_node = malloc(sizeof(CpTreeNode))), NULL, num_attempts)
+  
+  new_node->parent_node = parent_node;
+  new_node->cpt_name    = cpt_name;
+
+  num_attempts = NUMBER_ATTEMPTS;
+  ATTEMPT((new_node->children = MakeLinkedList()), NULL, num_attempts)
 
   return CREATE_TREE_SUCCESS;
 }
@@ -81,7 +86,7 @@ int FindCpt(CpTreeNodePtr curr_node, char *cpt_name, CpTreeNodePtr ret) {
   }
 
   LLIter children_iter;
-  ssize_t num_attempts = NUMBER_ATTMEPTS;
+  ssize_t num_attempts = NUMBER_ATTEMPTS;
   ATTEMPT((children_iter = LLGetIter(curr_node->children, 0)),
           NULL,
           num_attempts)
@@ -124,22 +129,7 @@ int FreeCpTreeNode(CpTreeNodePtr curr_node) {
   }
   free(curr_node->cpt_name);
   if (curr_node->children != NULL) {  // free this nodes children
-    LLIter children_iter;
-    CpTreeNodePtr curr_child;
-    ssize_t num_attempts = NUMBER_ATTMEPTS, num_child_malloc;
-    ATTEMPT((children_iter = LLGetIter(curr_node->children, 0)),
-            NULL,
-            num_attempts)
-
-    num_child_malloc = LLSize(curr_node->children);
-    while (num_child_malloc > 0) {
-      LLIterPayload(children_iter, &curr_child);
-      FreeCpTreeNode(curr_child);
-      LLIterAdvance(children_iter);
-      num_child_malloc--;
-    }
-    
-    LLIterFree(children_iter);  // free iterator
+    FreeLinkedList(curr_node->children, &FreeCpTreeNode);
   }
   free(curr_node);
   return TREE_FREE_OK;

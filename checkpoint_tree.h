@@ -31,20 +31,18 @@ typedef struct cpt_tree {
   LinkedList children;
 } CpTreeNode, *CpTreeNodePtr;
 
-// Given a pointer to a CpTreeNode, fills out the fields of the
-// struct accordingly. Assigns cpt_name and parent_tree to their
-// corresponding fields (without checking if the addresses are valid)
-// and attempts to allocate a LinkedList on the heap for the
-// children field.
+// Assigns cpt_name and parent_tree to their corresponding fields
+// (without checking if the addresses are valid) and attempts to
+// allocate a LinkedList on the heap for the children field.
 //
 // Returns:
 //
 //  - MEM_ERR: on a memory error
 //
 //  - CREATE_TREE_SUCCESS: if allocation was successful.
-int CreateCpTreeNode(CpTreeNodePtr cp_node,
-                     char *cpt_name,
-                     CpTreeNodePtr parent_node);
+int CreateCpTreeNode(char *cpt_name,
+                     CpTreeNodePtr parent_node,
+                     CpTreeNodePtr ret);
 
 // Inserts a Checkpoint node into the given node.
 //

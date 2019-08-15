@@ -2,34 +2,6 @@
 
 #include "checkpoint_filehandler.h"
 
-int WriteCheckPointLog(CheckPointLogPtr cpt_log) {
-  // TODO
-  return WRITE_SUCCESS;
-}
-
-int ReadCheckPointLog(CheckPointLogPtr cpt_log) {
-  struct stat;
-  if (DEBUG) {
-    printf("\t\tloading tables ...\n");
-  }
-
-  // Allocate space for the hashtables
-  cpt_log->src_filehash_to_filename = MakeHashTable(INITIAL_BUCKET_COUNT);
-  cpt_log->src_filehash_to_cptname  = MakeHashTable(INITIAL_BUCKET_COUNT);
-  cpt_log->cpt_namehash_to_cptfilename = MakeHashTable(INITIAL_BUCKET_COUNT);
-  cpt_log->dir_tree = MakeHashTable(INITIAL_BUCKET_COUNT);
-
-  if (cpt_log->src_filehash_to_filename == NULL ||
-      cpt_log->src_filehash_to_cptname  == NULL ||
-      cpt_log->cpt_namehash_to_cptfilename == NULL ||
-      cpt_log->dir_tree == NULL) {
-    return READ_ERROR;
-  }
-  // if (stat(STORED_CPTS_FILE, &stat) == 0
-
-  return READ_SUCCESS;
-}
-
 int WriteSrcToCheckpoint(char *src_filename, char *cpt_name) {
   FILE *cpt_file, *src_file;
   size_t dir_len = strlen(WORKING_DIR), name_len = strlen(cpt_name);
@@ -68,4 +40,32 @@ int WriteSrcToCheckpoint(char *src_filename, char *cpt_name) {
   }
 
   return 0;
+}
+
+int ReadCheckPointLog(CheckPointLogPtr cpt_log) {
+  struct stat;
+  if (DEBUG) {
+    printf("\t\tloading tables ...\n");
+  }
+
+  // Allocate space for the hashtables
+  cpt_log->src_filehash_to_filename = MakeHashTable(INITIAL_BUCKET_COUNT);
+  cpt_log->src_filehash_to_cptname  = MakeHashTable(INITIAL_BUCKET_COUNT);
+  cpt_log->cpt_namehash_to_cptfilename = MakeHashTable(INITIAL_BUCKET_COUNT);
+  cpt_log->dir_tree = MakeHashTable(INITIAL_BUCKET_COUNT);
+
+  if (cpt_log->src_filehash_to_filename == NULL ||
+      cpt_log->src_filehash_to_cptname  == NULL ||
+      cpt_log->cpt_namehash_to_cptfilename == NULL ||
+      cpt_log->dir_tree == NULL) {
+    return READ_ERROR;
+  }
+  // if (stat(STORED_CPTS_FILE, &stat) == 0
+
+  return READ_SUCCESS;
+}
+
+int WriteCheckPointLog(CheckPointLogPtr cpt_log) {
+  // TODO
+  return WRITE_SUCCESS;
 }

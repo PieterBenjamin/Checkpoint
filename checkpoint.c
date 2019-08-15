@@ -116,7 +116,7 @@ static int CreateCheckpoint(char *cpt_name,
                                             strlen(src_filename));
   HashTabKV storage;
   int res;
-  ssize_t num_attempts = NUMBER_ATTMEPTS;
+  ssize_t num_attempts = NUMBER_ATTEMPTS;
 
   if (DEBUG) {
     printf("\tcreating checkpoint %s for %s\n", cpt_name, src_filename);
@@ -139,6 +139,8 @@ static int CreateCheckpoint(char *cpt_name,
   } else {
     // This filename already has checkpoints, we should add
     // the new one to the tree.
+    // Specifically, we want this to be a new child of the current
+    // checkpoint for src_filename.
     if (AddCheckpointExistingFile(cpt_name,
                                   src_filename,
                                   src_filename_hash,
@@ -179,36 +181,56 @@ static int AddCheckpointExistingFile(char *cpt_name,
                                      char *src_filename,
                                      HashTabKey_t src_filename_hash,
                                      CheckPointLogPtr cpt_log) {
-  HashTabKV keyval;
-  ssize_t num_attempts = NUMBER_ATTMEPTS;
-  CpTreeNode new_cp;
+  // Here, we are going to need to lookup a lot. We want to
+  // add the new cpt_name as a child of the src_filename's
+  // current checkpoint.
+  HashTabKV storage;
+  CpTreeNodePtr root_node, parent_node, new_node;
+  ssize_t num_attempts = NUMBER_ATTEMPTS;
   int res;
-  ATTEMPT((res = HTLookup(cpt_log->dir_tree, src_filename_hash, &keyval)),
-            -1,
-            num_attempts)
-  if (res == 0) {  // This should not occur
-    if(DEBUG) {
-      printf("ERROR INVALID STATE: no mapping for file hash %x in"\
-              "filename table, but mapping exists in dir_tree\n",
-              (unsigned int)src_filename_hash);
+
+  // Here we are getting the root node for src_filename
+  ATTEMPT((res = HTLookup(cpt_log->dir_tree, src_filename_hash, &storage)),
+          -1,
+          num_attempts)
+  if (res == 0) {
+    if (DEBUG) {
+      printf("STATE ERROR: no mapping from filename hash to root node\n");
+    }
+    return CREATE_CPT_ERROR;
+  }
+  root_node = (CpTreeNodePtr)storage.value;
+
+   // Now we need to lookup the current checkpoint for the src file
+   num_attempts = NUMBER_ATTEMPTS;
+   ATTEMPT((res = HTLookup(cpt_log->src_filehash_to_cptname,
+                           src_filename_hash,
+                           &storage)),
+           -1,
+           num_attempts)
+  if (res == 0) {
+    if (DEBUG) {
+      printf("STATE ERROR: no mapping from filename hash to curr checkpoint\n");
     }
     return CREATE_CPT_ERROR;
   }
 
-  num_attempts = NUMBER_ATTMEPTS;
-  ATTEMPT((new_cp.children = MakeLinkedList()), NULL, num_attempts);
-  new_cp.cpt_name = malloc(sizeof(char) * (strlen(cpt_name + 1)));
-  if (new_cp.cpt_name == NULL) {
+  // Now, starting from the root node, we need to go down until we find the
+  // node with the same checkpoint name that the src file was last saved at.
+  if (FindCpt(root_node, storage.value, &parent_node) != FIND_CPT_SUCCESS) {
     if (DEBUG) {
-      printf("Ran out of memory to hold %s\n", cpt_name);
+      printf("could not find parent node for checkpoint %s, file %s\n",
+             cpt_name,
+             src_filename);
     }
-    FreeLinkedList(new_cp.children, &free);
-    return MEM_ERR;
+    return CREATE_CPT_ERROR;
   }
-  strcpy(new_cp.cpt_name, cpt_name);
-  new_cp.parent_node = ((CpTreeNodePtr)keyval.value);
-  return InsertCpTreeNode((CpTreeNodePtr)keyval.value, &new_cp) ==
-                    INSERT_NODE_SUCCESS ? CREATE_CPT_SUCCESS : CREATE_CPT_ERROR;
+
+  // Let's make space for the new node
+  CreateCpTreeNode(cpt_name, parent_node, &new_node);
+
+  return InsertCpTreeNode(parent_node, new_node) == INSERT_NODE_SUCCESS ?
+                                          CREATE_CPT_SUCCESS : CREATE_CPT_ERROR;
 }
 
 static int AddCheckpointNewFile(char *cpt_name,
@@ -217,7 +239,7 @@ static int AddCheckpointNewFile(char *cpt_name,
                                 CheckPointLogPtr cpt_log) {
   HashTabKV keyval, storage;
   int res;
-  ssize_t num_attempts = NUMBER_ATTMEPTS;                                
+  ssize_t num_attempts = NUMBER_ATTEMPTS;                                
   if (DEBUG) {
     printf("Storing new file %s with cp %s\n", src_filename, cpt_name);
   }
@@ -239,7 +261,7 @@ static int AddCheckpointNewFile(char *cpt_name,
   
   // Make space for a CpTreeNode
   CpTreeNodePtr new_tree;
-  num_attempts = NUMBER_ATTMEPTS;
+  num_attempts = NUMBER_ATTEMPTS;
   ATTEMPT((new_tree = (CpTreeNodePtr)malloc(sizeof(CpTreeNode))),
           NULL,
           num_attempts)
@@ -286,7 +308,7 @@ static int AddCheckpointNewFile(char *cpt_name,
   }
   strcpy(keyval.value, cpt_name);
 
-  num_attempts = NUMBER_ATTMEPTS;
+  num_attempts = NUMBER_ATTEMPTS;
   ATTEMPT((HTInsert(cpt_log->src_filehash_to_cptname, keyval, &storage)), 
                     0,
                     num_attempts)

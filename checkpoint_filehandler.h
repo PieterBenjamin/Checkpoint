@@ -34,6 +34,16 @@ typedef struct cpt_manager {
   HashTable dir_tree;
 } CheckPointLog, *CheckPointLogPtr;
 
+// Stores the state of @src_filename in @cpt_filename.
+//
+// Returns:
+//  -2: if a reading error occured.
+//
+//  -1: if a writing error occured.
+//
+//   0: if all went well.
+int WriteSrcToCheckpoint(char *src_filename, char *cpt_filename);
+
 // Loads the stored checkpoints from the bookkeeping dir into 
 // @cpt_log. If there is no file (or the file is empty), nothing 
 // will be added into the tables.
@@ -47,13 +57,3 @@ int ReadCheckPointLog(CheckPointLogPtr cpt_log);
 // Writes a copy of the current tables to disk so that the program
 // will not "forget" all the work it has done.
 int WriteCheckPointLog(CheckPointLogPtr cpt_log);
-
-// Stores the state of @src_filename in @cpt_filename.
-//
-// Returns:
-//  -2: if a reading error occured.
-//
-//  -1: if a writing error occured.
-//
-//   0: if all went well.
-int WriteSrcToCheckpoint(char *src_filename, char *cpt_filename);
