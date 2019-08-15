@@ -122,24 +122,12 @@ int FreeCpTreeNode(CpTreeNodePtr curr_node) {
   if (curr_node == NULL) {
     return TREE_FREE_OK;
   }
+
   free(curr_node->cpt_name);
   if (curr_node->children != NULL) {  // free this nodes children
-    LLIter children_iter;
-    CpTreeNodePtr curr_child;
-    ssize_t num_attempts = NUMBER_ATTMEPTS, num_child_malloc;
-    ATTEMPT((children_iter = LLGetIter(curr_node->children, 0)),
-            NULL,
-            num_attempts)
+    ssize_t num_attempts = NUMBER_ATTMEPTS;
 
-    num_child_malloc = LLSize(curr_node->children);
-    while (num_child_malloc > 0) {
-      LLIterPayload(children_iter, &curr_child);
-      FreeCpTreeNode(curr_child);
-      LLIterAdvance(children_iter);
-      num_child_malloc--;
-    }
-    
-    LLIterFree(children_iter);  // free iterator
+    FreeLinkedList(curr_node->children, &FreeCpTreeNode);
   }
   free(curr_node);
   return TREE_FREE_OK;
