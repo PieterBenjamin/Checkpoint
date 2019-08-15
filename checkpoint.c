@@ -12,9 +12,6 @@ static void CheckMacros() {
   assert(READ_SUCCESS != READ_ERROR);
 }
 
-/*
-  TODO: store relationships between checkpoints as a tree
-*/
 int main (int argc, char *argv[]) {
   CheckPointLog cpt_log;
   int res, setup;
@@ -32,6 +29,7 @@ int main (int argc, char *argv[]) {
   }
 
   if ((setup = Setup(&cpt_log)) != SETUP_SUCCESS) {
+    FreeCheckPointLog(&cpt_log);
     printf("ERROR[%d] in Setup, exiting now.\n", setup);
     return EXIT_FAILURE;
   }
@@ -63,11 +61,12 @@ int main (int argc, char *argv[]) {
   }
 
   if ((res = WriteCheckPointLog(&cpt_log)) != WRITE_SUCCESS) {
-    printf("Error %d writing tables. This dir is now considered corrupted.\n",
+    printf("Error %d writing tables. This dir is now considered corrupt.\n",
            res);
     FreeCheckPointLog(&cpt_log);
     return EXIT_FAILURE;
   }
+
   FreeCheckPointLog(&cpt_log);
   return EXIT_SUCCESS;
 }
@@ -83,7 +82,8 @@ static int Setup(CheckPointLogPtr cpt_log) {
       printf("\tCheckpoint: working dir detected, loading tables . . .\n");
     }
 
-    return ReadCheckPointLog(cpt_log) == READ_SUCCESS ? SETUP_SUCCESS : SETUP_TAB_ERROR;
+    return ReadCheckPointLog(cpt_log) == READ_SUCCESS ? 
+                                                SETUP_SUCCESS : SETUP_TAB_ERROR;
   } else if (errno == ENOENT) {  // Directory does not exist
     if (DEBUG) {
       printf("\tworking dir nonexistent, making right now . . .\n");
@@ -96,7 +96,8 @@ static int Setup(CheckPointLogPtr cpt_log) {
       return SETUP_DIR_ERROR;
     }
 
-    return ReadCheckPointLog(cpt_log) == READ_SUCCESS ? SETUP_SUCCESS : SETUP_TAB_ERROR;
+    return ReadCheckPointLog(cpt_log) == READ_SUCCESS ?
+                                                SETUP_SUCCESS : SETUP_TAB_ERROR;
   } else {  // Some other error
     if (DEBUG) {
       printf("\topendir(\"%s\") resulted in errno: %d", WORKING_DIR, errno);
@@ -113,8 +114,7 @@ static int CreateCheckpoint(char *cpt_name,
                             CheckPointLogPtr cpt_log) {
   HashTabKey_t src_filename_hash = HashFunc((unsigned char *)src_filename,
                                             strlen(src_filename));
-  HashTabKV keyval, storage;
-  LinkedList cpts;
+  HashTabKV storage;
   int res;
   ssize_t num_attempts = NUMBER_ATTMEPTS;
 
@@ -130,49 +130,30 @@ static int CreateCheckpoint(char *cpt_name,
                           &storage)), -1, num_attempts)
 
   if (res == 0) {  // This filename has not yet had a checkpoint created!
-    keyval.key   = (HashTabKey_t)(src_filename_hash);
-    // Add the mapping from source filename hash to source filename
-    char *src_name_copy, *cpt_name_copy;
-    ATTEMPT((src_name_copy = malloc(sizeof(char) * (strlen(src_filename + 1)))),
-             NULL, num_attempts)
-    strcpy(src_name_copy, src_filename);
-    keyval.value = (HashTabVal_t)(src_name_copy);
-    ATTEMPT((res = HTInsert(cpt_log->src_filehash_to_filename,
-                            keyval,
-                            &storage)), -1, num_attempts)
-    PREEXISTING("\ta file name", src_filename, res)
-
-
-    // Now add the mapping from the source file hash to the checkpoint
-    // names stored for that file.
-    // Attempt to allocate a Linked List.
-    ATTEMPT((cpts = MakeLinkedList()), NULL, num_attempts)
-    
-    // Attempt to make space on the heap for a checkpoint name.
-    ATTEMPT((cpt_name_copy = malloc(sizeof(char) * (strlen(cpt_name + 1)))),
-             NULL, num_attempts)
-    strcpy(cpt_name_copy, cpt_name);
-    
-    // Add the pointer to the checkpoint name into the linked list
-    ATTEMPT((LLPush(cpts, (LinkedListPayload)(cpt_name_copy))),
-            false,
-            num_attempts)
-    keyval.value = (HashTabVal_t)(cpts);
-
-    // Attempt to add the new mapping from src_filename to the new
-    // LinkedList which contains
-    ATTEMPT((res = HTInsert(cpt_log->src_filehash_to_cptnames,
-                            keyval,
-                            &storage)), -1, num_attempts)
-    PREEXISTING("\ta LL of cpts", src_filename, res)
+    if (AddCheckpointNewFile(cpt_name,
+                             src_filename,
+                             src_filename_hash,
+                             cpt_log) != CREATE_CPT_SUCCESS) {
+      return CREATE_CPT_ERROR;
+    }
+  } else {
+    // This filename already has checkpoints, we should add
+    // the new one to the tree.
+    if (AddCheckpointExistingFile(cpt_name,
+                                  src_filename,
+                                  src_filename_hash,
+                                  cpt_log) != CREATE_CPT_SUCCESS) {
+      return CREATE_CPT_ERROR;
+    }
   }
 
   // At this point, we can be certain two mappings exist:
   // 1. hash(src_filename) -> src_filename
-  // 2. hash(src_filename) -> LL of checkpoint names for the src file
+  // 2. hash(src_filename) -> Tree of checkpoint names for the src file
   //
   // Now we must verify there is a mapping from hash(cpt_name) to the
-  // name of a specific file.
+  // name of a file containing the data for that cpt. We will name that
+  // file cpt_name.
   HashTabKey_t cpt_filename_hash = HashFunc((unsigned char *)cpt_name,
                                             strlen(cpt_name));
   ATTEMPT((res = HTLookup(cpt_log->cpt_namehash_to_cptfilename,
@@ -191,6 +172,124 @@ static int CreateCheckpoint(char *cpt_name,
     return CREATE_CPT_ERROR;
   }
 
+  return CREATE_CPT_SUCCESS;
+}
+
+static int AddCheckpointExistingFile(char *cpt_name,
+                                     char *src_filename,
+                                     HashTabKey_t src_filename_hash,
+                                     CheckPointLogPtr cpt_log) {
+  HashTabKV keyval;
+  ssize_t num_attempts = NUMBER_ATTMEPTS;
+  CpTreeNode new_cp;
+  int res;
+  ATTEMPT((res = HTLookup(cpt_log->dir_tree, src_filename_hash, &keyval)),
+            -1,
+            num_attempts)
+  if (res == 0) {  // This should not occur
+    if(DEBUG) {
+      printf("ERROR INVALID STATE: no mapping for file hash %x in"\
+              "filename table, but mapping exists in dir_tree\n",
+              (unsigned int)src_filename_hash);
+    }
+    return CREATE_CPT_ERROR;
+  }
+
+  num_attempts = NUMBER_ATTMEPTS;
+  ATTEMPT((new_cp.children = MakeLinkedList()), NULL, num_attempts);
+  new_cp.cpt_name = malloc(sizeof(char) * (strlen(cpt_name + 1)));
+  if (new_cp.cpt_name == NULL) {
+    if (DEBUG) {
+      printf("Ran out of memory to hold %s\n", cpt_name);
+    }
+    FreeLinkedList(new_cp.children, &free);
+    return MEM_ERR;
+  }
+  strcpy(new_cp.cpt_name, cpt_name);
+  new_cp.parent_node = ((CpTreeNodePtr)keyval.value);
+  return InsertCpTreeNode((CpTreeNodePtr)keyval.value, &new_cp) ==
+                    INSERT_NODE_SUCCESS ? CREATE_CPT_SUCCESS : CREATE_CPT_ERROR;
+}
+
+static int AddCheckpointNewFile(char *cpt_name,
+                                char *src_filename,
+                                HashTabKey_t src_filename_hash,
+                                CheckPointLogPtr cpt_log) {
+  HashTabKV keyval, storage;
+  int res;
+  ssize_t num_attempts = NUMBER_ATTMEPTS;                                
+  if (DEBUG) {
+    printf("Storing new file %s with cp %s\n", src_filename, cpt_name);
+  }
+  keyval.key   = (HashTabKey_t)(src_filename_hash);
+  // Add the mapping from source filename hash to source filename
+  char *src_name_copy;
+  ATTEMPT((src_name_copy = malloc(sizeof(char) * (strlen(src_filename + 1)))),
+            NULL, num_attempts)
+  strcpy(src_name_copy, src_filename);
+  keyval.value = (HashTabVal_t)(src_name_copy);
+  ATTEMPT((res = HTInsert(cpt_log->src_filehash_to_filename,
+                          keyval,
+                          &storage)), -1, num_attempts)
+  PREEXISTING("\ta file name", src_filename, res)
+
+
+  // Now add the mapping from the source file hash to the checkpoint
+  // tree for that file.
+  
+  // Make space for a CpTreeNode
+  CpTreeNodePtr new_tree;
+  num_attempts = NUMBER_ATTMEPTS;
+  ATTEMPT((new_tree = (CpTreeNodePtr)malloc(sizeof(CpTreeNode))),
+          NULL,
+          num_attempts)
+  new_tree->parent_node = NULL;
+
+  // Now attempt to make space on the heap for a checkpoint name.
+  new_tree->cpt_name = malloc(sizeof(char) * (strlen(cpt_name + 1)));
+  if (new_tree->cpt_name == NULL) {
+    if (DEBUG) {
+      printf("Ran out of memory to hold %s\n", cpt_name);
+    }
+    free(new_tree);
+    return MEM_ERR;
+  }
+  strcpy(new_tree->cpt_name, cpt_name);
+
+  // now allocate a linked list to keep track of the children
+  new_tree->children = MakeLinkedList();
+  if (new_tree->children == NULL) {
+    if (DEBUG) {
+      printf("Ran out of memory for a linkedlist\n");
+    }
+    free(new_tree);
+    free(src_name_copy);
+    return MEM_ERR;
+  }
+
+  keyval.value = (HashTabVal_t)(new_tree);
+
+  // Attempt to add the new mapping from src_filename to the new
+  // LinkedList which contains
+  ATTEMPT((res = HTInsert(cpt_log->dir_tree,
+                          keyval,
+                          &storage)), -1, num_attempts)
+  PREEXISTING("\ta LL of cpts", src_filename, res)
+  
+  // Store the recorded cpt for the source file
+  keyval.value = (char *)malloc(sizeof(char) * (strlen(cpt_name + 1)));
+  if (keyval.value == NULL) {
+    if (DEBUG) {
+      printf("Ran out of memory to hold %s\n", cpt_name);
+    }
+    return MEM_ERR;
+  }
+  strcpy(keyval.value, cpt_name);
+
+  num_attempts = NUMBER_ATTMEPTS;
+  ATTEMPT((HTInsert(cpt_log->src_filehash_to_cptname, keyval, &storage)), 
+                    0,
+                    num_attempts)
   return CREATE_CPT_SUCCESS;
 }
 
@@ -217,31 +316,10 @@ static size_t List(CheckPointLogPtr cpt_log) {
 }
 
 static void FreeCheckPointLog(CheckPointLogPtr cpt_log) {
-  // The first two frees are easy, the keys are simple hashes,
-  // and the values are single pointers to char arrays on the heap.
   FreeHashTable(cpt_log->src_filehash_to_filename, &free);
+  FreeHashTable(cpt_log->src_filehash_to_cptname, &free);
   FreeHashTable(cpt_log->cpt_namehash_to_cptfilename, &free);
-  // The second free is a little more complex, since every bucket
-  // points to a LL which sits on the heap, with pointers to strings
-  // on the heap. This will take a little more work.
-  HTIter ht_iter = MakeHTIter(cpt_log->src_filehash_to_cptnames);
-  HashTabKV kv;
-
-  kv.value = NULL;
-  while (!HTIterValid(ht_iter)) {
-    if (!HTIterKV(ht_iter, &kv)) {
-      continue;
-    }
-
-    // The LL is free of pointers to the heap, which we want to get rid of.
-    if (kv.value != NULL) {
-      FreeLinkedList((LinkedList)(kv.value), &free);
-    }
-    kv.value = NULL;
-    HTIncrementIter(ht_iter);
-  }
-  
-  DiscardHTIter(ht_iter);
+  FreeHashTable(cpt_log->dir_tree, &FreeCpTreeNode);
 }
 
 static int IsValidCommand(char *command) {

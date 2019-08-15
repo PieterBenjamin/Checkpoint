@@ -49,6 +49,20 @@ static int CreateCheckpoint(char *cpt_name,
                             char *filename,
                             CheckPointLogPtr cpt_log);
 
+// Adds a checkpoint with the knowledge that this file has not yet had
+// a checkpoint stored.
+static int AddCheckpointNewFile(char *cpt_name,
+                                char *src_filename,
+                                HashTabKey_t src_filename_hash,
+                                CheckPointLogPtr cpt_log);
+
+// Adds a checkpoint with the knowledge that this file has had
+// a checkpoint stored.
+static int AddCheckpointExistingFile(char *cpt_name,
+                                     char *src_filename,
+                                     HashTabKey_t src_filename_hash,
+                                     CheckPointLogPtr cpt_log);
+
 // Changes to the checkpoint @cpt_name. Note that this will
 // overwrite/delete the current copy of the file for the
 // given checkpoint name, and replace it with the version

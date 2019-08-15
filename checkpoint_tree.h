@@ -12,6 +12,8 @@
 #define FIND_CPT_ABSENT  321
 #define FIND_CPT_ERROR   -123
 
+#define TREE_FREE_OK 0
+
 // This struct will maintain the relationship between all the
 // checkpoints known in the current directory. It will have to
 // be loaded from/written to disk every time an instance
@@ -37,7 +39,7 @@ typedef struct cpt_tree {
 //
 // Returns:
 //
-//              - MEM_ERR: on a memory error
+//  - MEM_ERR: on a memory error
 //
 //  - CREATE_TREE_SUCCESS: if allocation was successful.
 int CreateCpTreeNode(CpTreeNodePtr cp_node,
@@ -52,7 +54,7 @@ int CreateCpTreeNode(CpTreeNodePtr cp_node,
 //
 // - INSERT_NODE_SUCCESS: if insert was successfull.
 //
-//   - INSERT_NODE_ERROR: if something went wrong.
+// - INSERT_NODE_ERROR: if something went wrong.
 int InsertCpTreeNode(CpTreeNodePtr cpt_node, CpTreeNodePtr to_insert);
 
 // Attempts to find the checkpoint with the name @cpt_name
@@ -60,12 +62,21 @@ int InsertCpTreeNode(CpTreeNodePtr cpt_node, CpTreeNodePtr to_insert);
 // containing the same name will be returned through @ret.
 // Returns:
 //
-//           - MEM_ERR: if any memory errors occur while searching.
+//  - MEM_ERR: if any memory errors occur while searching.
 //
 //  - FIND_CPT_SUCCESS: if a CpTreeNode was found with a matching cpt_name
 //
-//   - FIND_CPT_ABSENT: if the search determined there is no CpTreeNode
+//  - FIND_CPT_ABSENT: if the search determined there is no CpTreeNode
 //                      below (and including) cpt_tre with a matching name.
 //
-//    - FIND_CPT_ERROR: when a generic error occurs while searching.
+//  - FIND_CPT_ERROR: when a generic error occurs while searching.
 int FindCpt(CpTreeNodePtr cpt_tree, char *cpt_name, CpTreeNodePtr ret);
+
+// Frees a given node and all it's children.
+//
+// Returns:
+//
+//  - MEM_ERROR: on a memory error
+//
+//  - TREE_FREE_OK: if all went well
+int FreeCpTreeNode(CpTreeNodePtr curr_node);

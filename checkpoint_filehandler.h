@@ -15,24 +15,23 @@
 // This is a struct which will hold pointers to all the data structs
 // required to maintain this VC system.
 typedef struct cpt_manager {
-  // Key: the hash of a filename.
+  // Key: the hash of a source filename.
   // Value: a pointer to a string on the heap (the filename).
   HashTable src_filehash_to_filename;
-  // Key: the hash of a filename.
-  // Value: a pointer to a cpt_tree struct on the heap which
-  //        stores all the information about the checkpoints
-  //        for the file whose name hashes to the key.
-  HashTable src_filehash_to_cptnames;
+  // Key: the hash of a source filename
+  // Value: a pointer to a string on the heap (the current cp of the file)
+  HashTable src_filehash_to_cptname;
   // Key: the hash of a checkpoint filename (note that the filename
   //      should be IDENTICAL to the checkpoint name)
   // Value: a pointer to the heap which contains the name of the
   //        checkpoint file (i.e. the stored difference)
   HashTable cpt_namehash_to_cptfilename;
 
-  // This struct is separate from the others, and is solely
-  // responsible for maintaining all the information about
-  // the relationships between checkpoints.
-  CpTreeNodePtr root_node;
+  // This table is by far the most complex. It keeps track
+  // of all the checkpoint trees for the entire directory.
+  // Key: the hash of a source filename.
+  // Value: a pointer to a CpTreeNode on the heap.
+  HashTable dir_tree;
 } CheckPointLog, *CheckPointLogPtr;
 
 // Loads the stored checkpoints from the bookkeeping dir into 

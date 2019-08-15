@@ -13,13 +13,16 @@ int ReadCheckPointLog(CheckPointLogPtr cpt_log) {
     printf("\t\tloading tables ...\n");
   }
 
+  // Allocate space for the hashtables
   cpt_log->src_filehash_to_filename = MakeHashTable(INITIAL_BUCKET_COUNT);
-  cpt_log->src_filehash_to_cptnames = MakeHashTable(INITIAL_BUCKET_COUNT);
+  cpt_log->src_filehash_to_cptname  = MakeHashTable(INITIAL_BUCKET_COUNT);
   cpt_log->cpt_namehash_to_cptfilename = MakeHashTable(INITIAL_BUCKET_COUNT);
+  cpt_log->dir_tree = MakeHashTable(INITIAL_BUCKET_COUNT);
 
   if (cpt_log->src_filehash_to_filename == NULL ||
-      cpt_log->src_filehash_to_cptnames == NULL ||
-      cpt_log->cpt_namehash_to_cptfilename == NULL) {
+      cpt_log->src_filehash_to_cptname  == NULL ||
+      cpt_log->cpt_namehash_to_cptfilename == NULL ||
+      cpt_log->dir_tree == NULL) {
     return READ_ERROR;
   }
   // if (stat(STORED_CPTS_FILE, &stat) == 0
