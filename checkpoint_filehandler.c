@@ -1,6 +1,6 @@
 // Copyright 2019, Pieter Benjamin, pieter0benjamin@gmail.com
 
-#include "Datastructs/HashTable_priv.h"
+#include "DataStructs/HashTable_priv.h"
 #include "checkpoint_filehandler.h"
 
 void FileHandlerNullFree(void *val) { }
