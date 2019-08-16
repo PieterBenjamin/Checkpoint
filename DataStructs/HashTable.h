@@ -15,7 +15,7 @@ typedef void*    HashTabVal_t;    // hash table value type
 // value in the HashTable.
 typedef void(*ValueFreeFnPtr)(HashTabVal_t value);
 
-// Returns NULL on error, non-NULL on success.
+// Returns NULL on ERROR, non-NULL on success.
 HashTable MakeHashTable(CPSize_t bucket_count);
 
 // Frees the HashTable table, and invokes free_func on all
@@ -99,14 +99,14 @@ int HTInsert(HashTable table,
 //
 // Returns:
 //
-//  - -1 if there was an error (e.g., out of memory)
+//  - -1 if there was an ERROR (e.g., out of memory)
 //
 //  - 0 if the key wasn't found in the HashTable
 //
 //  - +1 if the key was found
 int HTLookup(HashTable table,
-                    HashTabKey_t key,
-                    HashTabKV *keyvalue);
+             HashTabKey_t key,
+             HashTabKV *keyvalue);
 
 // Removes a key/value from the HashTable and returns it to the
 // caller.
@@ -124,7 +124,7 @@ int HTLookup(HashTable table,
 //   (client must free the pointer).
 //
 // Returns:
-//  - -1 on error (e.g., out of memory)
+//  - -1 on ERROR (e.g., out of memory)
 //
 //  - 0 if the key wasn't found in the HashTable
 //
