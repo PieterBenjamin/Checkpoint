@@ -12,8 +12,8 @@
 // hash table is just an array of buckets, where each bucket is a linked list
 // of HashTabKV structs.
 typedef struct hashtablerecord {
-  CPSize_t        bucket_count;   // # of buckets in this HT?
-  CPSize_t        ht_size;  // # of elements currently in this HT?
+  CPSize_t        bucket_count;  // # of buckets in this HT?
+  CPSize_t        ht_size;       // # of elements currently in this HT?
   LinkedList     *buckets;       // the array of buckets
 } HashTableRecord;
 
