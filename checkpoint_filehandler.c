@@ -99,6 +99,7 @@ int WriteCheckPointLog(CheckPointLogPtr cpt_log) {
     return FILE_WRITE_ERR;
   }              
 
+  fclose(f);
   return offset;
 }
 
@@ -125,7 +126,7 @@ int ReadCheckPointLog(CheckPointLogPtr cpt_log) {
     if (DEBUG) {
       printf("ERROR allocating space for hashables\n");
     }
-    return READ_ERROR;
+    return MEM_ERR;
   }
 
   // Read the stored tables (if they exist)

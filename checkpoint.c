@@ -27,6 +27,9 @@ int main (int argc, char *argv[]) {
   // index in a switch statement to determine what to do.
   if ((res = IsValidCommand(argv[1])) == INVALID_COMMAND) {
     fprintf(stderr, "invalid command: %s\n", argv[1]);
+    fprintf(stderr, "Valid commands are %s, %s, %s, and %s.\n",
+            valid_commands[0], valid_commands[1], valid_commands[2],
+            valid_commands[3]);
     return EXIT_FAILURE;
   }
 
@@ -51,8 +54,13 @@ int main (int argc, char *argv[]) {
       break;
     case 3:  // list
       CHECK_ARG_COUNT(2)
-      if (List(&cpt_log) == 0) {
-        printf("There are no stored checkpoints for this dir.\n");
+      res = List(&cpt_log);
+      if (res == MEM_ERR || res == LIST_ERR) {
+        FreeCheckPointLog(&cpt_log);
+        return EXIT_FAILURE;
+      }
+      if (res == 0) {
+        printf("There are no saved checkpoints for this dir.\n");
       }
       break;
     default: 
@@ -343,12 +351,129 @@ static int Delete(char *cpt_name, CheckPointLogPtr cpt_log) {
   return DELETE_SUCCESS;
 }
 
-static size_t List(CheckPointLogPtr cpt_log) {
-  size_t num_cpts = 0;
-  if (DEBUG) {
-    printf("\tlisting\n");
+static int List(CheckPointLogPtr cpt_log) {
+  int num_cpts = 0, num_attempts, num_files, i, res;
+  HTIter it;
+  HashTabKV f_name, cpt_tree, cptname;
+
+  // We'll be printing a list of the stored checkpoints on a per-file basis.
+  // The format is as follows:
+  // scrc_filename_1 (curr_cpt_name)
+  //    init: cptname
+  //    parent_cpt: child1, child2, childn
+  //    . . .
+  //    cptname_n: children
+  // . . .
+  // src_filename_n (curr_cpt_name)
+  //    . . .
+  // Note that children will be listed after their parents, and those
+  // same children will be listed on a new line if they in turn have
+  // children
+
+  // To achieve the above output, we'll only need one iterator. Since
+  // all hashtables should share the keyset, one iterator should be enough
+  // to get all the keys we need.
+
+  num_attempts = NUMBER_ATTEMPTS;
+  ATTEMPT((it = MakeHTIter(cpt_log->src_filehash_to_filename)),
+          NULL,
+          num_attempts)
+
+  num_files = HTSize(cpt_log->dir_tree);
+  if (num_files != HTSize(cpt_log->src_filehash_to_filename) ||
+      num_files != HTSize(cpt_log->src_filehash_to_cptname)) {
+      if (DEBUG) {
+        printf("ERROR: invalid state - not an equal keyset for all hashtables\n");
+      }
+      return LIST_ERR;
   }
+
+  for (i = 0; i < num_files; i++) {
+    // Get current key.
+    if (HTIterKV(it, &f_name) == 0) {
+      if (DEBUG) {
+        printf("ERROR: could not advance iterator in List\n");
+      }
+      DiscardHTIter(it);
+      return LIST_ERR;
+    }
+    // Get other two values.
+    res = HTLookup(cpt_log->src_filehash_to_cptname, f_name.key, &cptname);
+    if (res == 0 || res == -1) {
+      DiscardHTIter(it);
+      return LIST_ERR;
+    }
+    res = HTLookup(cpt_log->dir_tree, f_name.key, &cpt_tree);
+    if (res == 0 || res == -1) {
+      DiscardHTIter(it);
+      return LIST_ERR;
+    }
+
+    // Print output.
+    printf("%s (%s)\n", f_name.key, cptname.value);
+    res = PrintTree(cpt_tree.value);
+    if (res == MEM_ERR || res == PRINT_ERR) {
+      DiscardHTIter(it);
+      return LIST_ERR;
+    }
+    num_cpts += res;
+
+    // Advance iterator.
+    if (HTIncrementIter(it) == 0) {
+      if (DEBUG) {
+        printf("ERROR: could not advance iterator in List\n");
+      }
+      DiscardHTIter(it);
+      return LIST_ERR;
+    }
+  }
+
+  DiscardHTIter(it);
   return num_cpts;
+}
+
+static int PrintTree(CpTreeNodePtr tree) {
+  int num_cps = 0, res;
+  if (tree == NULL) {
+    return num_cps;
+  }
+  if (tree->cpt_name == NULL || tree->children == NULL) {
+    return PRINT_ERR;
+  }
+
+  LLIter it;
+  CpTreeNodePtr curr_child;
+  int i, num_children, num_attempts;
+
+  printf("\t%s: ", tree->cpt_name);
+  num_children = LLSize(tree->children);
+  if (num_children > 0) {  // Print current node + children
+    num_attempts = NUMBER_ATTEMPTS;
+    ATTEMPT((it = LLGetIter(tree->children, 0)), NULL, num_attempts)
+    for (i = 0; i < num_children; i++) {
+      LLIterPayload(it, &curr_child);
+      printf("%s%s", curr_child->cpt_name, i < num_children - 1 ? ", " : "");
+    }
+    LLIterFree(it);
+  }
+  printf("\n");
+
+  if (num_children > 0) {  // Recursively print children
+    num_attempts = NUMBER_ATTEMPTS;
+    ATTEMPT((it = LLGetIter(tree->children, 0)), NULL, num_attempts)
+    for (i = 0; i < num_children; i++) {
+      LLIterPayload(it, &curr_child);
+      res = PrintTree(curr_child);
+      if (res == PRINT_ERR) {
+        LLIterFree(it);
+        return PRINT_ERR;
+      }
+      num_cps += res;
+    }
+    LLIterFree(it);
+  }
+
+  return 1 + num_cps;
 }
 
 static void FreeCheckPointLog(CheckPointLogPtr cpt_log) {

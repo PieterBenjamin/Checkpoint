@@ -16,6 +16,10 @@
 #define SWAPTO_SUCCESS 0
 #define DELETE_SUCCESS 0
 
+#define LIST_ERR -1
+
+#define PRINT_ERR -1
+
 const char *valid_commands[] = {"create", "swapto", "delete", "list"};
 
 // Prints usage to stderr
@@ -87,7 +91,19 @@ static int Delete(char *cpt_name, CheckPointLogPtr cpt_log);
 //
 // Returns:
 //  The number of checkpoints stored for this dir.
-static size_t List(CheckPointLogPtr cpt_log);
+static int List(CheckPointLogPtr cpt_log);
+
+// Helper method to List. Prints all the parent/children
+// lists for a given tree.
+//
+// Returns:
+//
+// - MEM_ERR: on a memory error
+//
+// - PRINT_ERR: if any other errors arise
+//
+// - The number of checkpoints in @tree otherwise.
+static int PrintTree(CpTreeNodePtr tree);
 
 // Handles freeing all the tables and their contents.
 static void FreeCheckPointLog(CheckPointLogPtr cpt_log);
