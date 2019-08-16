@@ -10,6 +10,8 @@ static void CheckMacros() {
   assert(SETUP_SUCCESS != SETUP_DIR_ERROR);
   assert(SETUP_SUCCESS != SETUP_TAB_ERROR);
   assert(READ_SUCCESS != READ_ERROR);
+
+  assert(FILE_WRITE_ERR < 0);
 }
 
 int main (int argc, char *argv[]) {
@@ -58,9 +60,8 @@ int main (int argc, char *argv[]) {
       return EXIT_FAILURE;
   }
 
-  if ((res = WriteCheckPointLog(&cpt_log)) != WRITE_SUCCESS) {
-    printf("Error %d writing tables. This dir is now considered corrupt.\n",
-           res);
+  if (WriteCheckPointLog(&cpt_log) == FILE_WRITE_ERR) {
+    printf("Error writing tables. This dir is now considered corrupt.\n");
     FreeCheckPointLog(&cpt_log);
     return EXIT_FAILURE;
   }
@@ -168,7 +169,7 @@ static int CreateCheckpoint(char *cpt_name,
 
     // No I/O error - we can now update our mapping
     char *src_filename_copy;
-    num_attempts = NUMBER_ATTMEPTS;
+    num_attempts = NUMBER_ATTEMPTS;
     ATTEMPT((src_filename_copy = malloc(sizeof(char) * (strlen(src_filename) + 1))),
             NULL,
             num_attempts)
@@ -176,7 +177,7 @@ static int CreateCheckpoint(char *cpt_name,
 
     kv.key = src_filename_hash;
     kv.value = src_filename_copy;
-    num_attempts = NUMBER_ATTMEPTS;
+    num_attempts = NUMBER_ATTEMPTS;
     ATTEMPT((HTInsert(cpt_log->cpt_namehash_to_cptfilename, kv, &storage)),
             0,
             num_attempts)
@@ -230,7 +231,7 @@ static int AddCheckpointExistingFile(char *cpt_name,
 
   // Now, starting from the root node, we need to go down until we find the
   // node with the same checkpoint name that the src file was last saved at.
-  if (FindCpt(root_node, storage.value, &parent_node) != FIND_CPT_SUCCESS) {
+  if (FindCpt(root_node, storage.value, parent_node) != FIND_CPT_SUCCESS) {
     if (DEBUG) {
       printf("could not find parent node for checkpoint %s, file %s\n",
              cpt_name,
@@ -240,7 +241,7 @@ static int AddCheckpointExistingFile(char *cpt_name,
   }
 
   // Let's make space for the new node
-  CreateCpTreeNode(cpt_name, parent_node, &new_node);
+  CreateCpTreeNode(cpt_name, parent_node, new_node);
 
   return InsertCpTreeNode(parent_node, new_node) == INSERT_NODE_SUCCESS ?
                                           CREATE_CPT_SUCCESS : CREATE_CPT_ERROR;

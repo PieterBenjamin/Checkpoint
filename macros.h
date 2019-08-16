@@ -14,7 +14,12 @@
 #include <stdbool.h>
 
 #define STORED_CPTS_FILE "./.cpt_bkpng/strd_cpts"
+// ********************************
+// TAKE CARE THAT THE DIRS MATCH
+// IN THE NEXT TWO MACROS
 #define WORKING_DIR "./.cpt_"
+#define CP_LOG_FILE "./.cpt_/CpLog"
+// ********************************
 #define NUMBER_ATTEMPTS 20 // Number of times to try again on an out-of-mem err
 #ifdef DEBUG_
   #define DEBUG true
@@ -24,7 +29,7 @@
 
 #define INITIAL_BUCKET_COUNT 10
 // Various error/info codes
-#define MEM_ERR 333
+#define MEM_ERR -333
 
 #define WRITE_SUCCESS 0
 

@@ -1,5 +1,8 @@
 // Copyright 2019, Pieter Benjamin, pieter0benjamin@gmail.com
 
+#ifndef _CHECKPOINT_H_
+#define _CHECKPOINT_H_
+
 #include "checkpoint_filehandler.h"
 
 #define INVALID_COMMAND -1
@@ -88,3 +91,5 @@ static size_t List(CheckPointLogPtr cpt_log);
 
 // Handles freeing all the tables and their contents.
 static void FreeCheckPointLog(CheckPointLogPtr cpt_log);
+
+#endif  // _CHECKPOINT_H_

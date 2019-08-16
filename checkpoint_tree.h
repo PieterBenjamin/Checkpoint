@@ -1,5 +1,8 @@
 // Copyright 2019, Pieter Benjamin, pieter0benjamin@gmail.com
 
+#ifndef _CHECKPOINT_TREE_H_
+#define _CHECKPOINT_TREE_H_
+
 #include "DataStructs/LinkedList.h"
 #include "macros.h"
 
@@ -78,3 +81,5 @@ int FindCpt(CpTreeNodePtr cpt_tree, char *cpt_name, CpTreeNodePtr ret);
 //
 //  - TREE_FREE_OK: if all went well
 int FreeCpTreeNode(CpTreeNodePtr curr_node);
+
+#endif  // _CHECKPOINT_TREE_H_

@@ -1,8 +1,10 @@
 // Copyright 2019, Pieter Benjamin, pieter0benjamin@gmail.com
 
+#ifndef _CHECKPOINT_FILEHANDLER_H_
+#define _CHECKPOINT_FILEHANDLER_H_
 // This module is the sole point of file i/o for the entire program.
 // As such, it is somewhat of a "god class" in that it has access to
-// ecery struct used in the entire program.
+// every struct used in the entire program.
 
 #include "DataStructs/HashTable.h"
 #include "checkpoint_tree.h"
@@ -12,7 +14,21 @@
 #include <errno.h>
 #include <sys/stat.h>
 
+
+// THIS VALUE MUST BE NEGATIVE
 #define FILE_WRITE_ERR -1
+
+#define CHECK_HASHTABLE_LENGTH(x)\
+  if (x == MEM_ERR || x == FILE_WRITE_ERR) { return FILE_WRITE_ERR; }
+
+#pragma pack(push,1)
+
+// WriteHashTable takes a function which will write all the
+// buckets in the given table to a file. Since there are two
+// types of HashTables, the function needs to be a parameter.
+typedef ssize_t (*write_bucket_fn)(FILE *f,
+                                   ssize_t offset,
+                                   HashTabKV kv);
 
 // This is a struct which will hold pointers to all the data structs
 // required to maintain this VC system.
@@ -36,7 +52,44 @@ typedef struct cpt_manager {
   HashTable dir_tree;
 } CheckPointLog, *CheckPointLogPtr;
 
+typedef struct cpt_log_header {
+  // These two fields are used to check if the file has been corrupted.
+  u_int32_t magic_number;
+  u_int32_t checksum;
+  // These four fields are used to store the number of bytes written
+  // for each file.
+  u_int32_t src_filehash_to_filename_size;
+  u_int32_t src_filehash_to_cptname_size;
+  u_int32_t cpt_namehash_to_cptfilename_size;
+  u_int32_t dir_tree_size;
+
+} CpLogFileHeader;
+
+// The header field for a list of bucket recs.
+typedef struct bucket_reclist_header {
+  // The number of bucket records in this list.
+ ssize_t num_bucket_recs;
+} BucketRecListHeader;
+
+typedef struct bucket_rec {
+  // The number of bytes written for the given bucket.
+  ssize_t bucket_size;
+  // The offset for the given bucket (startinf from
+  // the beginning of the file).
+  ssize_t bucket_pos;
+} BucketRec;
+
+// This struct should be written at the 
+// beginning of every bucket.
+typedef struct bucket_header {
+  // Used while rehashing.
+  uint64_t key;
+} BucketHeader;
+
 // Used for writing a CpTreeNode's bookkeeping information.
+// Since the only other data being written is variable length,
+// (the name of the node and offsets of children) not much
+// else can be stored in a struct.
 typedef struct file_tree_header {
   ssize_t name_length;
   ssize_t num_children;
@@ -49,29 +102,57 @@ typedef struct file_tree_header {
 // Returns:
 //  - READ_SUCCESS - if all went well
 //
-//  - READ_ERROR - if an error occurs, in which case errno should be checked.
+//  - READ_ERROR - if an ERROR occurs, in which case errno should be checked.
 int ReadCheckPointLog(CheckPointLogPtr cpt_log);
 
 // Writes a copy of the Checkpoint Log to disk so that the program
 // will not "forget" all the work it has done.
 int WriteCheckPointLog(CheckPointLogPtr cpt_log);
 
-// Writes the entire tree pointed to by @curr node to file @f, starting
-// at offset @offset.
+// This VC system is composed of four hash tables. This method
+// takes care pf writing them, with the assistance of @fn.
 //
 // Returns:
 //
-//  - MEM_ERR: on memory error
+//  - MEM_ERR: upon a memory ERROR.
 //
-//  - FILE_WRITE_ERR: if an error arose while writing
+//  - FILE_WRITE_ERR: if an ERROR arises while writing.
 //
-//  - The number of bytes written for curr_node(and it's children)
-static int WriteTree(CpTreeNodePtr curr_node, ssize_t offset, FILE *f);
+//  - The number of bytes written otherwise.
+int32_t WriteHashTable(FILE *f,
+                       HashTable table,
+                       ssize_t offset,
+                       write_bucket_fn fn);
+
+// Simply writes the given string to the given file at the given offset.
+// DOES NOT INCLUDE NULL TERMINATOR.
+//
+// Returns:
+//
+//  - FILE_WRITE_ERR: if any ERRORs arose while writing.
+//
+//  - The number of chars written otherwise.
+int WriteStringBucket(FILE *f, ssize_t offset, HashTabKV kv);
+
+// Writes a bucket (including a bucket header) to file f,
+// containing the contents of kv.value (assumed to be a
+// CpTreeNodePtr).
+//
+// Returns:
+//
+//  - MEM_ERR: on memory ERROR.
+//
+//  - FILE_WRITE_ERR: if an ERROR arose while writing.
+//
+//  - The number of bytes written for curr_node(and it's children).
+static int WriteTreeBucket(FILE *f, ssize_t offset, HashTabKV kv);
+
+// Writes a CpTreeNodePtr to file @f. Returns the size of the tree (in bytes). 
+static int WriteTree(FILE *f, ssize_t offset, CpTreeNodePtr curr_node);
 
 // Helper method to WriteTree, writes the contents of all of curr_nodes
 // children to file @f, starting at offset @offset
 static int WriteChildren(CpTreeNodePtr curr_node,
-                         LLIter it,
                          ssize_t *children_offsets,
                          ssize_t offset,
                          FILE *f);
@@ -80,9 +161,13 @@ static int WriteChildren(CpTreeNodePtr curr_node,
 //
 // Returns:
 //
-//  -2: if a reading error occured.
+//  -2: if a reading ERROR occured.
 //
-//  -1: if a writing error occured.
+//  -1: if a writing ERROR occured.
 //
 //   0: if all went well.
 int WriteSrcToCheckpoint(char *src_filename, char *cpt_filename);
+
+#pragma pack(pop)
+
+#endif  // _CHECKPOINT_FILEHANDLER_H_
