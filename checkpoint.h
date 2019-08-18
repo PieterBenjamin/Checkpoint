@@ -50,7 +50,7 @@ static void CheckMacros();
 //  2. Loads the data stored in the dir into the tables (nothing is loaded
 //     if the dir has not yet been setup)
 // Returns:
-//  SETUP_SUCCESS - if all went well, and an error code otherwise.
+//  SETUP_SUCCESS - if all went well, and an error code (what error code??) otherwise.
 static int32_t Setup(CheckPointLogPtr cpt_log);
 
 // Checks that the supplied command is valid.
@@ -58,19 +58,23 @@ static int32_t Setup(CheckPointLogPtr cpt_log);
 // Returns:
 //
 //  -1: if the command is invalid, and an index otherwise.
+// is the input null terminated? If so you should specify this. Otherwise, take a length input parameter. 
 static int32_t IsValidCommand(char *command);
 
+// Does creation entail any generation, or just inserting it into the log? If this has other side effects, specify them. 
 // Creates the checkpoint  name @cpt for the file
 // @filename, and saves it in @cpt_log.
 //
 // Returns:
-//  CREATE_CPT_SUCCESS - if all went well, and an error code otherwise.
+//  CREATE_CPT_SUCCESS - if all went well, and an error code (?) otherwise.
 static int32_t CreateCheckpoint(char *cpt_name,
                             char *filename,
                             CheckPointLogPtr cpt_log);
 
+//couldn't the two below be private, and have a method AddCheckpoint that routes to them? 
 // Adds a checkpoint  with the knowledge that this file has not yet had
 // a checkpoint  stored.
+// again, note your side effects and or return parameters, or return values. This goes for the other method headers too. 
 static int32_t AddCheckpointNewFile(char *cpt_name,
                                 char *src_filename,
                                 HashTabKey_t src_filename_hash,
@@ -87,6 +91,7 @@ static int32_t AddCheckpointExistingFile(char *cpt_name,
 // overwrite/delete the current copy of the file for the
 // given checkpoint  name, and replace it with the version
 // saved for the checkpoint.
+// maybe you should have a cached copy of what was overwritten, so a user can 'undo' a checkpoint load? I know I'd be upset if I accidentally lost my work permanently. 
 //
 // Returns:
 //  SWAPTO_SUCCESS if all went well, and SWAPTO_* error code otherwise.
@@ -120,6 +125,7 @@ static int32_t FreeTreeCpHash(CheckPointLogPtr cpt_log, CpTreeNodePtr curr_node)
 
 // Prints a list of all current checkpoints (and their corresponding
 // files) to stdout.
+// In what order? Also, shouldn't you be able to see those for a specific file? 
 //
 // Returns:
 //  The number of checkpoints stored for this dir.
