@@ -10,7 +10,7 @@ int32_t CreateCpTreeNode(char *cpt_name,
   int32_t num_attempts = NUMBER_ATTEMPTS;
   ATTEMPT((new_node = malloc(sizeof(CpTreeNode))), NULL, num_attempts)
   num_attempts = NUMBER_ATTEMPTS;
-  ATTEMPT((new_node->cpt_name = malloc(sizeof(char) * strlen(cpt_name + 1))), NULL, num_attempts)
+  ATTEMPT((new_node->cpt_name = malloc(sizeof(char) * strlen(cpt_name /* um, this is hilarious. This just works because you append 1 to the string and check the length. */+ 1))), NULL, num_attempts)
   num_attempts = NUMBER_ATTEMPTS;
   ATTEMPT((new_node->children = MakeLinkedList()), NULL, num_attempts)
 
@@ -23,6 +23,7 @@ int32_t CreateCpTreeNode(char *cpt_name,
 
 int32_t InsertCpTreeNode(CpTreeNodePtr cpt_node, CpTreeNodePtr to_insert) {
   if (DEBUG) {printf("adding %s as a child of %s\n", to_insert->cpt_name, cpt_node->cpt_name);}
+  // shouldn't this be checked BEFORE dereferencing in debug? 
   if (cpt_node == NULL) {
     if (DEBUG) {
       printf("Error, given a null node to insert into\n");
@@ -47,6 +48,8 @@ int32_t InsertCpTreeNode(CpTreeNodePtr cpt_node, CpTreeNodePtr to_insert) {
     }
     return INSERT_NODE_ERROR;
   }
+
+// why are you suddenly inlining comments? Pick a standard and stick to it
 
   return INSERT_NODE_SUCCESS;  // If we've reached here, no errors occured.
 }
@@ -100,6 +103,7 @@ int32_t FindCpt(CpTreeNodePtr curr_node, char *cpt_name, CpTreeNodePtr *ret) {
   int32_t res;
   while (num_children_unchecked > 0) {
     LLIterPayload(children_iter, (LinkedListPayload)(&curr_child));
+    // if you're using res outside this if statement (you are) , this could be confusing. If statements don't usually have side effects outside their own scope. 
     if ((res = FindCpt(curr_child, cpt_name, ret)) == FIND_CPT_SUCCESS) {
       LLIterFree(children_iter);
       return FIND_CPT_SUCCESS;
@@ -107,6 +111,7 @@ int32_t FindCpt(CpTreeNodePtr curr_node, char *cpt_name, CpTreeNodePtr *ret) {
       LLIterFree(children_iter);
       return FIND_CPT_ERROR;
     }
+    // isn't there an LLIterHasNext? Why this odd logic? 
     LLIterAdvance(children_iter);
     num_children_unchecked--;
   }
@@ -114,6 +119,8 @@ int32_t FindCpt(CpTreeNodePtr curr_node, char *cpt_name, CpTreeNodePtr *ret) {
   LLIterFree(children_iter);
   // We checked the current node, and all it's children. The cpt
   // must not have been created before.
+  // This is a recursive function, why are you printing this out like this? It just means it hasn't been found in this specific branch
+
   if (DEBUG) {
     printf("\t\tThe desired checkpoint could not be found\n");
   }
@@ -127,6 +134,8 @@ int32_t FreeCpTreeNode(CpTreeNodePtr curr_node) {
 
   free(curr_node->cpt_name);
   if (curr_node->children != NULL) {  // free this nodes children
+    // you don't use the result of this method, and don't propogate it up... So.. 
+Why does it exist? 
     FreeLinkedList(curr_node->children, &FreeCpTreeNode);
   }
 
