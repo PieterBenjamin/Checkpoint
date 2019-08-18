@@ -15,7 +15,12 @@
 
 #define SWAPTO_SUCCESS 0
 #define SWAPTO_ERROR -1
+
 #define DELETE_SUCCESS 0
+#define DELETE_ERROR -1
+
+#define BACK_SUCCESS 0
+#define BACK_ERROR -1
 
 #define LIST_ERR -1
 
@@ -28,7 +33,7 @@
     return EXIT_FAILURE;\
   }
 
-const char *valid_commands[] = {"create", "swapto", "delete", "list"};
+const char *valid_commands[] = {"create", "back", "swapto", "delete", "list"};
 
 // Prints usage to stderr
 static void Usage(void);
@@ -87,12 +92,31 @@ static int32_t AddCheckpointExistingFile(char *cpt_name,
 //  SWAPTO_SUCCESS if all went well, and SWAPTO_* error code otherwise.
 static int32_t SwapTo(char *src_filename, char *cpt_name, CheckPointLogPtr cpt_log);
 
-// Deletes the checkpoint  @cpt_name (modifies cpt_log).
-// Also removes any saved info on @checkpointname from the working dir.
+// Attempts to go backwards one step up the checkpoint tree stored for
+// @src_filename.
+//
+// Returns:
+//
+//  - BACK_ERROR: if anything goes wrong.
+//
+//  - BACK_SUCCESS: if all goes well.
+static int32_t Back(char *src_filename, CheckPointLogPtr cpt_log);
+
+// Deletes all traces of @src_filename from the current checkpoint system.
 //
 // Returns:
 //  DELETE_SUCCESS if all went well, and DELETE_* error code otherwise.
-static int32_t Delete(char *cpt_name, CheckPointLogPtr cpt_log);
+static int32_t Delete(char *src_filename, CheckPointLogPtr cpt_log);
+
+// Helper method to Delete. Removes all mappings from the names in the tree
+// stored inside cp_log->cpt_namehash_to_cptfilename.
+//
+// Returns:
+//
+//  - MEM_ERR: on a memory error.
+//
+//  - 0: upon successful completion.
+static int32_t FreeTreeCpHash(CheckPointLogPtr cpt_log, CpTreeNodePtr curr_node);
 
 // Prints a list of all current checkpoints (and their corresponding
 // files) to stdout.

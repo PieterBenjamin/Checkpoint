@@ -64,6 +64,7 @@ int32_t FindCpt(CpTreeNodePtr curr_node, char *cpt_name, CpTreeNodePtr *ret) {
     return FIND_CPT_ERROR;
   }
 
+  if (DEBUG) { printf("here: "); printf("%s\n", curr_node->cpt_name); }
   if (strcmp(curr_node->cpt_name, cpt_name) == 0) {  // The cpt we're looking for is here!
     if (DEBUG) {
       printf("\t\tSuccess! cpt_name %s found at address %x\n",
@@ -99,17 +100,7 @@ int32_t FindCpt(CpTreeNodePtr curr_node, char *cpt_name, CpTreeNodePtr *ret) {
   int32_t res;
   while (num_children_unchecked > 0) {
     LLIterPayload(children_iter, (LinkedListPayload)(&curr_child));
-    // We have to check two things:
-    
-    // 1. Does this child node have the name we want?
-    if (strcmp(curr_child->cpt_name, cpt_name) == 0) {
-      *ret = curr_child;  // Copy into return param
-      LLIterFree(children_iter);
-      return FIND_CPT_SUCCESS;
-    }
-
-    // 2. Does the desired cpt_name exist in the grandchildren?
-    if ((res = FindCpt(&curr_child, cpt_name, ret)) == FIND_CPT_SUCCESS) {
+    if ((res = FindCpt(curr_child, cpt_name, ret)) == FIND_CPT_SUCCESS) {
       LLIterFree(children_iter);
       return FIND_CPT_SUCCESS;
     } else if (res == FIND_CPT_ERROR) {
