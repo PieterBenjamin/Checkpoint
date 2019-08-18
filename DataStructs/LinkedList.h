@@ -115,7 +115,7 @@ bool LLSlice(LinkedList list, LinkedListPayload *payload_ptr);
 //
 // - comparator_function:  this argument is a pointer to a payload comparator
 //   function; see above.
-void LLSort(LinkedList list, unsigned int ascending,
+void LLSort(LinkedList list, unsigned int32_tascending,
                     LLPayloadCompareFn comparator_function);
 
 struct ll_iter;
@@ -133,7 +133,7 @@ typedef struct ll_iter *LLIter;  // same trick to hide implementation.
 // - pos: where to start (0 = head, 1 = tail)
 //
 // Returns NULL on failure (out of memory, empty list) or non-NULL on success.
-LLIter LLGetIter(LinkedList list, int pos);
+LLIter LLGetIter(LinkedList list, int32_t pos);
 
 // When you're done with an iterator, you must free it by calling this
 // function.

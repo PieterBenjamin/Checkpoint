@@ -14,9 +14,9 @@ static void CheckMacros() {
   assert(FILE_WRITE_ERR < 0);
 }
 
-int main (int argc, char *argv[]) {
+int32_t main (int32_t argc, char *argv[]) {
   CheckPointLog cpt_log;
-  int res, setup;
+  int32_t res, setup;
   if (argc > 4 || argc < 2) {  // check valid use
     Usage();
   }
@@ -78,12 +78,12 @@ int main (int argc, char *argv[]) {
   return EXIT_SUCCESS;
 }
 
-static int Setup(CheckPointLogPtr cpt_log) {
+static int32_t Setup(CheckPointLogPtr cpt_log) {
   if (DEBUG) {
     printf("Setting up working dir . . .\n");
   }
   DIR *dp;
-  int status;
+  int32_t status;
 
   if ((dp = opendir(WORKING_DIR)) != NULL) {  // Directory exists
     if (DEBUG) {
@@ -118,17 +118,22 @@ static int Setup(CheckPointLogPtr cpt_log) {
   return SETUP_SUCCESS;
 }
 
-static int CreateCheckpoint(char *cpt_name,
+static int32_t CreateCheckpoint(char *cpt_name,
                             char *src_filename,
                             CheckPointLogPtr cpt_log) {
   HashTabKey_t src_filename_hash = HashFunc((unsigned char *)src_filename,
                                             strlen(src_filename));
   HashTabKV kv, storage;
-  int res;
-  ssize_t num_attempts = NUMBER_ATTEMPTS;
+  int32_t res;
+  uint32_t num_attempts = NUMBER_ATTEMPTS;
 
+
+  // Update mapping from cpt_name_hash to cpt_file,
+  // and update the mapping from src_filename to cpt_name.
+  HashTabKey_t cpt_filename_hash = HashFunc((unsigned char *)cpt_name,
+                                              strlen(cpt_name));
   if (DEBUG) {
-    printf("\tcreating checkpoint %s for %s\n", cpt_name, src_filename);
+    printf("\tcreating checkpoint  %s for %s\n", cpt_name, src_filename);
   }
   
   // Is there a mapping from hash(src_filename)? If there is not,
@@ -138,7 +143,7 @@ static int CreateCheckpoint(char *cpt_name,
                           src_filename_hash,
                           &storage)), -1, num_attempts)
 
-  if (res == 0) {  // This filename has not yet had a checkpoint created!
+  if (res == 0) {  // This filename has not yet had a checkpoint  created!
     if (AddCheckpointNewFile(cpt_name,
                              src_filename,
                              src_filename_hash,
@@ -149,7 +154,7 @@ static int CreateCheckpoint(char *cpt_name,
     // This filename already has checkpoints, we should add
     // the new one to the tree.
     // Specifically, we want this to be a new child of the current
-    // checkpoint for src_filename.
+    // checkpoint  for src_filename.
     if (AddCheckpointExistingFile(cpt_name,
                                   src_filename,
                                   src_filename_hash,
@@ -158,19 +163,10 @@ static int CreateCheckpoint(char *cpt_name,
     }
   }
 
-  // At this point, we can be certain two mappings exist:
-  // 1. hash(src_filename) -> src_filename
-  // 2. hash(src_filename) -> Tree of checkpoint names for the src file
-  //
-  // Now we must verify there is a mapping from hash(cpt_name) to the
-  // name of a file containing the data for that cpt. We will name that
-  // file cpt_name.
-  HashTabKey_t cpt_filename_hash = HashFunc((unsigned char *)cpt_name,
-                                            strlen(cpt_name));
   ATTEMPT((res = HTLookup(cpt_log->cpt_namehash_to_cptfilename,
                           cpt_filename_hash,
                           &storage)), -1, num_attempts)
-  if (res == 0) {  // No checkpoint filename mapping exists for the checkpoint!
+  if (res == 0) {  // No checkpoint  filename mapping exists for the checkpoint!
     if (WriteSrcToCheckpoint(src_filename, cpt_name) != 0) {  // I/O error
       return CREATE_CPT_ERROR;
     }
@@ -183,15 +179,26 @@ static int CreateCheckpoint(char *cpt_name,
             num_attempts)
     strcpy(src_filename_copy, src_filename);
 
-    kv.key = src_filename_hash;
+    kv.key = cpt_filename_hash;
     kv.value = src_filename_copy;
     num_attempts = NUMBER_ATTEMPTS;
     ATTEMPT((HTInsert(cpt_log->cpt_namehash_to_cptfilename, kv, &storage)),
             0,
             num_attempts)
+
+    num_attempts = NUMBER_ATTEMPTS;
+    char *cpt_name_copy;
+    ATTEMPT((cpt_name_copy = malloc((sizeof(char) * strlen(cpt_name)) + 1)),
+             NULL,
+             num_attempts)
+    num_attempts = NUMBER_ATTEMPTS;
+    strcpy(cpt_name_copy, cpt_name);
+    kv.key = src_filename_hash;
+    kv.value = cpt_name_copy;
+    ATTEMPT((HTInsert(cpt_log->src_filehash_to_cptname, kv, &storage)), 0 , num_attempts)
   } else if (res == 1) {  // The client is trying to overwrite data! Stop them!
     fprintf(stderr,
-           "\tSorry, checkpoint name [%s] already exists. Try another.\n"\
+           "\tSorry, checkpoint  name [%s] already exists. Try another.\n"\
            "\t(maybe %s2)\n", cpt_name, cpt_name);
     return CREATE_CPT_ERROR;
   }
@@ -199,17 +206,17 @@ static int CreateCheckpoint(char *cpt_name,
   return CREATE_CPT_SUCCESS;
 }
 
-static int AddCheckpointExistingFile(char *cpt_name,
-                                     char *src_filename,
-                                     HashTabKey_t src_filename_hash,
-                                     CheckPointLogPtr cpt_log) {
+static int32_t AddCheckpointExistingFile(char *cpt_name,
+                                         char *src_filename,
+                                         HashTabKey_t src_filename_hash,
+                                         CheckPointLogPtr cpt_log) {
   // Here, we are going to need to lookup a lot. We want to
   // add the new cpt_name as a child of the src_filename's
   // current checkpoint.
   HashTabKV storage;
   CpTreeNodePtr root_node, parent_node, new_node;
-  ssize_t num_attempts = NUMBER_ATTEMPTS;
-  int res;
+  uint32_t num_attempts = NUMBER_ATTEMPTS;
+  int32_t res;
 
   // Here we are getting the root node for src_filename
   ATTEMPT((res = HTLookup(cpt_log->dir_tree, src_filename_hash, &storage)),
@@ -223,13 +230,14 @@ static int AddCheckpointExistingFile(char *cpt_name,
   }
   root_node = (CpTreeNodePtr)storage.value;
 
-   // Now we need to lookup the current checkpoint for the src file
+   // Now we need to lookup the current checkpoint  for the src file
    num_attempts = NUMBER_ATTEMPTS;
    ATTEMPT((res = HTLookup(cpt_log->src_filehash_to_cptname,
                            src_filename_hash,
                            &storage)),
            -1,
            num_attempts)
+           printf("%s currently on cp %s\n", src_filename, storage.value);
   if (res == 0) {
     if (DEBUG) {
       printf("STATE ERROR: no mapping from filename hash to curr checkpoint\n");
@@ -238,10 +246,11 @@ static int AddCheckpointExistingFile(char *cpt_name,
   }
 
   // Now, starting from the root node, we need to go down until we find the
-  // node with the same checkpoint name that the src file was last saved at.
-  if (FindCpt(root_node, storage.value, parent_node) != FIND_CPT_SUCCESS) {
+  // node with the same checkpoint  name that the src file was last saved at.
+  if (FindCpt(root_node, storage.value, &parent_node) != FIND_CPT_SUCCESS) {
     if (DEBUG) {
-      printf("could not find parent node for checkpoint %s, file %s\n",
+      printf("could not find parent node %s for checkpoint  %s, file %s\n",
+             storage.value,
              cpt_name,
              src_filename);
     }
@@ -249,23 +258,25 @@ static int AddCheckpointExistingFile(char *cpt_name,
   }
 
   // Let's make space for the new node
-  CreateCpTreeNode(cpt_name, parent_node, new_node);
+  CreateCpTreeNode(cpt_name, parent_node, &new_node);
+  printf("parent: %x\n", parent_node);
+  printf("\t(%x): %s\n", new_node->cpt_name, new_node->cpt_name);
 
   return InsertCpTreeNode(parent_node, new_node) == INSERT_NODE_SUCCESS ?
                                           CREATE_CPT_SUCCESS : CREATE_CPT_ERROR;
 }
 
-static int AddCheckpointNewFile(char *cpt_name,
-                                char *src_filename,
-                                HashTabKey_t src_filename_hash,
-                                CheckPointLogPtr cpt_log) {
+static int32_t AddCheckpointNewFile(char *cpt_name,
+                                    char *src_filename,
+                                    HashTabKey_t src_filename_hash,
+                                    CheckPointLogPtr cpt_log) {
   HashTabKV keyval, storage;
-  int res;
-  ssize_t num_attempts = NUMBER_ATTEMPTS;                                
+  int32_t res;
+  uint32_t num_attempts = NUMBER_ATTEMPTS;                                
   if (DEBUG) {
     printf("Storing new file %s with cp %s\n", src_filename, cpt_name);
   }
-  keyval.key   = (HashTabKey_t)(src_filename_hash);
+  keyval.key = (HashTabKey_t)(src_filename_hash);
   // Add the mapping from source filename hash to source filename
   char *src_name_copy;
   ATTEMPT((src_name_copy = malloc(sizeof(char) * (strlen(src_filename) + 1))),
@@ -289,7 +300,7 @@ static int AddCheckpointNewFile(char *cpt_name,
           num_attempts)
   new_tree->parent_node = NULL;
 
-  // Now attempt to make space on the heap for a checkpoint name.
+  // Now attempt to make space on the heap for a checkpoint  name.
   new_tree->cpt_name = malloc(sizeof(char) * (strlen(cpt_name) + 1));
   if (new_tree->cpt_name == NULL) {
     if (DEBUG) {
@@ -337,22 +348,22 @@ static int AddCheckpointNewFile(char *cpt_name,
   return CREATE_CPT_SUCCESS;
 }
 
-static int SwapTo(char *cpt_name, CheckPointLogPtr cpt_log) {
+static int32_t SwapTo(char *cpt_name, CheckPointLogPtr cpt_log) {
   if (DEBUG) {
     printf("swapping to %s\n", cpt_name);
   }
   return SWAPTO_SUCCESS;
 }
 
-static int Delete(char *cpt_name, CheckPointLogPtr cpt_log) {
+static int32_t Delete(char *cpt_name, CheckPointLogPtr cpt_log) {
   if (DEBUG) {
     printf("deleting %s\n", cpt_name);
   }
   return DELETE_SUCCESS;
 }
 
-static int List(CheckPointLogPtr cpt_log) {
-  int num_cpts = 0, num_attempts, num_files, i, res;
+static int32_t List(CheckPointLogPtr cpt_log) {
+  int32_t num_cpts = 0, num_attempts, num_files, i, res;
   HTIter it;
   HashTabKV f_name, cpt_tree, cptname;
 
@@ -388,11 +399,13 @@ static int List(CheckPointLogPtr cpt_log) {
       return LIST_ERR;
   }
 
+  char *fname;
+  if (DEBUG) { printf("printing the state of %d files\n", num_files); }
   for (i = 0; i < num_files; i++) {
     // Get current key.
-    if (HTIterKV(it, &f_name) == 0) {
+    if (HTIterKV(it, &f_name) == 0 && num_files > 1) {
       if (DEBUG) {
-        printf("ERROR: could not advance iterator in List\n");
+        printf("ERROR: could obtain HTKV List\n");
       }
       DiscardHTIter(it);
       return LIST_ERR;
@@ -408,23 +421,26 @@ static int List(CheckPointLogPtr cpt_log) {
       DiscardHTIter(it);
       return LIST_ERR;
     }
-
-    // Print output.
-    printf("%s (%s)\n", f_name.key, cptname.value);
+  
+    // print output.
+    printf("%s (curr cp: %s)\n", f_name.value, cptname.value);
     res = PrintTree(cpt_tree.value);
     if (res == MEM_ERR || res == PRINT_ERR) {
       DiscardHTIter(it);
       return LIST_ERR;
     }
     num_cpts += res;
+    printf("\n");
 
     // Advance iterator.
-    if (HTIncrementIter(it) == 0) {
-      if (DEBUG) {
-        printf("ERROR: could not advance iterator in List\n");
+    if (i < num_files - 1) {
+      if (HTIncrementIter(it) == 0 && num_files > 1) {
+        if (DEBUG) {
+          printf("ERROR: could not advance iterator in List\n");
+        }
+        DiscardHTIter(it);
+        return LIST_ERR;
       }
-      DiscardHTIter(it);
-      return LIST_ERR;
     }
   }
 
@@ -432,8 +448,8 @@ static int List(CheckPointLogPtr cpt_log) {
   return num_cpts;
 }
 
-static int PrintTree(CpTreeNodePtr tree) {
-  int num_cps = 0, res;
+static int32_t PrintTree(CpTreeNodePtr tree) {
+  int32_t num_cps = 0, res;
   if (tree == NULL) {
     return num_cps;
   }
@@ -443,15 +459,16 @@ static int PrintTree(CpTreeNodePtr tree) {
 
   LLIter it;
   CpTreeNodePtr curr_child;
-  int i, num_children, num_attempts;
+  int32_t i, num_children, num_attempts;
 
   printf("\t%s: ", tree->cpt_name);
   num_children = LLSize(tree->children);
-  if (num_children > 0) {  // Print current node + children
+  if (num_children > 0) {  // Print32_t current node + children
     num_attempts = NUMBER_ATTEMPTS;
     ATTEMPT((it = LLGetIter(tree->children, 0)), NULL, num_attempts)
     for (i = 0; i < num_children; i++) {
       LLIterPayload(it, &curr_child);
+
       printf("%s%s", curr_child->cpt_name, i < num_children - 1 ? ", " : "");
     }
     LLIterFree(it);
@@ -478,7 +495,7 @@ static int PrintTree(CpTreeNodePtr tree) {
 
 static void FreeCheckPointLog(CheckPointLogPtr cpt_log) {
   if (DEBUG) {
-    printf("Freeing tables. num elements:\n"\
+    printf("Freeing tables . . .\nNum elements:\n"\
            "\tsrc_filehash_to_filename:    %d\n"\
            "\tsrc_filehash_to_cptname:     %d\n"\
            "\tcpt_namehash_to_cptfilename: %d\n"\
@@ -494,8 +511,8 @@ static void FreeCheckPointLog(CheckPointLogPtr cpt_log) {
   FreeHashTable(cpt_log->dir_tree, &FreeCpTreeNode);
 }
 
-static int IsValidCommand(char *command) {
-  int i;
+static int32_t IsValidCommand(char *command) {
+  int32_t i;
 
   // Compare commmand to all valid commands
   for (i = 0; i < VALID_COMMAND_COUNT; i++) {
@@ -508,17 +525,17 @@ static int IsValidCommand(char *command) {
 
 static void Usage() {
   fprintf(stderr, "\nCheckpoint: copyright 2019, Pieter Benjamin\n");
-  fprintf(stderr, "\nUsage: ./Checkpoint <option>\n");
+  fprintf(stderr, "\nUsage: ./checkpoint  <option>\n");
   fprintf(stderr, "Where <filename> is an absolute or relative pathway\n"\
                   "to the file you would like to checkpoint.\n\n"\
                   "options:\n"\
-                  "\tcreate <checkpoint name> <file name>\n"\
-                  "\tswapto <checkpoint name>\n"\
-                  "\tdelete <checkpoint name>\n"\
+                  "\tcreate <checkpoint  name> <file name>\n"\
+                  "\tswapto <checkpoint  name>\n"\
+                  "\tdelete <checkpoint  name>\n"\
                   "\tlist   (lists all Checkpoints for the current dir)\n\n"\
                   "PLEASE NOTE:"\
                   "\t- Checkpoints will be stored in files labeled with\n"\
-                  "\t  the name of the checkpoint you provide. If you\n"\
+                  "\t  the name of the checkpoint  you provide. If you\n"\
                   "\t  provide the name of a preexisting file, it will\n"\
                   "\t  NOT be overwritten.\n\n"
                   "\t- Delete is irreversible.\n\n");  

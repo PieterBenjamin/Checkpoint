@@ -79,7 +79,7 @@ HashTabKey_t HashInt64(HashTabVal_t hashme);
 //
 //  - +2 if the kv_to_insert was inserted and an old key/value
 //    with the same key was replaced
-int HTInsert(HashTable table,
+int32_t HTInsert(HashTable table,
                     HashTabKV kv_to_insert,
                     HashTabKV *old_kv_storage);
 
@@ -104,7 +104,7 @@ int HTInsert(HashTable table,
 //  - 0 if the key wasn't found in the HashTable
 //
 //  - +1 if the key was found
-int HTLookup(HashTable table,
+int32_t HTLookup(HashTable table,
              HashTabKey_t key,
              HashTabKV *keyvalue);
 
@@ -129,7 +129,7 @@ int HTLookup(HashTable table,
 //  - 0 if the key wasn't found in the HashTable
 //
 //  - +1 if the key was found
-int HTRemove(HashTable table,
+int32_t HTRemove(HashTable table,
                         HashTabKey_t key,
                         HashTabKV *keyvalue);
 
@@ -168,7 +168,7 @@ void DiscardHTIter(HTIter iter);
 //   because the iterator (after moving it forward) is past the
 //   end of the table.  In either case, the iterator is no
 //   longer usable.
-int HTIncrementIter(HTIter iter);
+int32_t HTIncrementIter(HTIter iter);
 
 // Tests to see if the iterator is past the end
 // of its table.
@@ -183,7 +183,7 @@ int HTIncrementIter(HTIter iter);
 //
 // - 0 if iter is not at the end of the table (and therefore
 //   the table is non-empty).
-int HTIterValid(HTIter iter);
+int32_t HTIterValid(HTIter iter);
 
 // Returns a copy of the key/value that the iterator is currently
 // pointing at.
@@ -200,7 +200,7 @@ int HTIterValid(HTIter iter);
 // - 0 if the iterator is not valid or the table is empty
 //
 // - +1 on success.
-int HTIterKV(HTIter iter, HashTabKV *keyvalue);
+int32_t HTIterKV(HTIter iter, HashTabKV *keyvalue);
 
 // Returns a copy of key/value that the iterator is currently
 // pointing at, and removes that key/value from the
@@ -223,6 +223,6 @@ int HTIterKV(HTIter iter, HashTabKV *keyvalue);
 //
 // - +2 on success, but the iterator is now invalid because
 //   it has advanced past the end of the hash table.
-int HTIterDel(HTIter iter, HashTabKV *keyvalue);
+int32_t HTIterDel(HTIter iter, HashTabKV *keyvalue);
 
 #endif  // _HASHTABLE_H_

@@ -26,9 +26,12 @@
 // WriteHashTable takes a function which will write all the
 // buckets in the given table to a file. Since there are two
 // types of HashTables, the function needs to be a parameter.
-typedef ssize_t (*write_bucket_fn)(FILE *f,
-                                   ssize_t offset,
+typedef int32_t (*write_bucket_fn)(FILE *f,
+                                   uint32_t offset,
                                    HashTabKV kv);
+typedef int32_t (*read_bucket_fn)(FILE *f,
+                                  uint32_t offset,
+                                  HashTabKV *kv);
 
 // This is a struct which will hold pointers to all the data structs
 // required to maintain this VC system.
@@ -68,15 +71,15 @@ typedef struct cpt_log_header {
 // The header field for a list of bucket recs.
 typedef struct bucket_reclist_header {
   // The number of bucket records in this list.
- ssize_t num_bucket_recs;
+ uint32_t num_bucket_recs;
 } BucketRecListHeader;
 
 typedef struct bucket_rec {
   // The number of bytes written for the given bucket.
-  ssize_t bucket_size;
+  uint32_t bucket_size;
   // The offset for the given bucket (startinf from
   // the beginning of the file).
-  ssize_t bucket_pos;
+  uint32_t bucket_pos;
 } BucketRec;
 
 // This struct should be written at the 
@@ -86,13 +89,17 @@ typedef struct bucket_header {
   uint64_t key;
 } BucketHeader;
 
+typedef struct string_bucket_header {
+  uint32_t len;
+} StringBucketHeader;
+
 // Used for writing a CpTreeNode's bookkeeping information.
 // Since the only other data being written is variable length,
 // (the name of the node and offsets of children) not much
 // else can be stored in a struct.
 typedef struct file_tree_header {
-  ssize_t name_length;
-  ssize_t num_children;
+  uint32_t name_length;
+  uint32_t num_children;
 } FileTreeHeader;
 
 // Loads the stored checkpoints from the bookkeeping dir into 
@@ -103,11 +110,35 @@ typedef struct file_tree_header {
 //  - READ_SUCCESS - if all went well
 //
 //  - READ_ERROR - if an ERROR occurs, in which case errno should be checked.
-int ReadCheckPointLog(CheckPointLogPtr cpt_log);
+int32_t ReadCheckPointLog(CheckPointLogPtr cpt_log);
 
-// Writes a copy of the Checkpoint Log to disk so that the program
+static int32_t ReadHashTable(FILE *f,
+                             uint32_t offset,
+                             HashTable table,
+                             read_bucket_fn fn);
+
+// Helper method to ReadCheckPointLog.
+// Reads in a Hash table whose values are supposed to be pointers
+// to strings on the heap.
+static int32_t ReadStringBucket(FILE *f, uint32_t offset, HashTabKV *kv);
+
+
+static int32_t ReadTreeBucket(FILE *f, uint32_t offset, HashTabKV *kv);
+
+static int32_t ReadTreeNode(FILE *f, uint32_t offset, CpTreeNodePtr curr_node);
+
+// Helper method to ReadTreeNode. Reads the children of @parent into
+// its linked list of children, starting from offset, which is assumed
+// to be the beginning of an array of int32_ts which are themselves
+// further offsets from @offset to the children of parent.
+static int32_t ReadTreeChildren(FILE *f,
+                                uint32_t offset,
+                                uint32_t num_children,
+                                CpTreeNodePtr parent);
+
+// Writes a copy of the checkpoint Log to disk so that the program
 // will not "forget" all the work it has done.
-int WriteCheckPointLog(CheckPointLogPtr cpt_log);
+int32_t WriteCheckPointLog(CheckPointLogPtr cpt_log);
 
 // This VC system is composed of four hash tables. This method
 // takes care pf writing them, with the assistance of @fn.
@@ -119,10 +150,10 @@ int WriteCheckPointLog(CheckPointLogPtr cpt_log);
 //  - FILE_WRITE_ERR: if an ERROR arises while writing.
 //
 //  - The number of bytes written otherwise.
-int32_t WriteHashTable(FILE *f,
-                       HashTable table,
-                       ssize_t offset,
-                       write_bucket_fn fn);
+static int32_t WriteHashTable(FILE *f,
+                              HashTable table,
+                              uint32_t offset,
+                              write_bucket_fn fn);
 
 // Simply writes the given string to the given file at the given offset.
 // DOES NOT INCLUDE NULL TERMINATOR.
@@ -132,7 +163,7 @@ int32_t WriteHashTable(FILE *f,
 //  - FILE_WRITE_ERR: if any ERRORs arose while writing.
 //
 //  - The number of chars written otherwise.
-int WriteStringBucket(FILE *f, ssize_t offset, HashTabKV kv);
+static int32_t WriteStringBucket(FILE *f, uint32_t offset, HashTabKV kv);
 
 // Writes a bucket (including a bucket header) to file f,
 // containing the contents of kv.value (assumed to be a
@@ -145,17 +176,17 @@ int WriteStringBucket(FILE *f, ssize_t offset, HashTabKV kv);
 //  - FILE_WRITE_ERR: if an ERROR arose while writing.
 //
 //  - The number of bytes written for curr_node(and it's children).
-static int WriteTreeBucket(FILE *f, ssize_t offset, HashTabKV kv);
+static int32_t WriteTreeBucket(FILE *f, uint32_t offset, HashTabKV kv);
 
 // Writes a CpTreeNodePtr to file @f. Returns the size of the tree (in bytes). 
-static int WriteTree(FILE *f, ssize_t offset, CpTreeNodePtr curr_node);
+static int32_t WriteTree(FILE *f, uint32_t offset, CpTreeNodePtr curr_node);
 
 // Helper method to WriteTree, writes the contents of all of curr_nodes
 // children to file @f, starting at offset @offset
-static int WriteChildren(CpTreeNodePtr curr_node,
-                         ssize_t *children_offsets,
-                         ssize_t offset,
-                         FILE *f);
+static int32_t WriteChildren(CpTreeNodePtr curr_node,
+                             uint32_t *children_offsets,
+                             uint32_t offset,
+                             FILE *f);
 
 // Stores the state of @src_filename in @cpt_filename.
 //
@@ -166,7 +197,7 @@ static int WriteChildren(CpTreeNodePtr curr_node,
 //  -1: if a writing ERROR occured.
 //
 //   0: if all went well.
-int WriteSrcToCheckpoint(char *src_filename, char *cpt_filename);
+int32_t WriteSrcToCheckpoint(char *src_filename, char *cpt_filename);
 
 #pragma pack(pop)
 

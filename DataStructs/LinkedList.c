@@ -172,14 +172,14 @@ void LLSort(LinkedList list, unsigned int ascending,
   }
 
   // we'll implement bubblesort! nice and easy, and nice and slow :)
-  int swapped;
+  int32_t swapped;
   do {
     LinkedListNodePtr curnode;
 
     swapped = 0;
     curnode = list->head;
     while (curnode->next != NULL) {
-      int compare_result = comparator_function(curnode->payload,
+      int32_t compare_result = comparator_function(curnode->payload,
                                                curnode->next->payload);
       if (ascending) {
         compare_result *= -1;
@@ -197,11 +197,10 @@ void LLSort(LinkedList list, unsigned int ascending,
   } while (swapped);
 }
 
-LLIter LLGetIter(LinkedList list, int pos) {
+LLIter LLGetIter(LinkedList list, int32_t pos) {
   // defensive programming
   assert(list != NULL);
   assert((pos == 0) || (pos == 1));
-
   // if the list is empty, return failure.
   if (LLSize(list) == 0U)
     return NULL;

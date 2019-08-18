@@ -46,7 +46,7 @@ static HashTabKVPtr search(HashTabKey_t key,
 // - 0: If any memory error occurs.
 //
 // - 1: If insertion was successful.
-static int InsertHTKVNodeIntoLL(HashTabKV kv_to_insert,
+static int32_t InsertHTKVNodeIntoLL(HashTabKV kv_to_insert,
                                 LinkedList *insertchain_ptr);
 
 HashTable MakeHashTable(CPSize_t bucket_count) {
@@ -155,7 +155,7 @@ HashTabKey_t HashFunc(unsigned char *buffer, CPSize_t len) {
 
 HashTabKey_t HashInt64(HashTabVal_t hashval) {
   unsigned char buf[8];
-  int i;
+  int32_t i;
   uint64_t hashme = (uint64_t)hashval;
 
   for (i = 0; i < 8; i++) {
@@ -169,7 +169,7 @@ CPSize_t HTKeyToBucket(HashTable ht, HashTabKey_t key) {
   return key % ht->bucket_count;
 }
 
-static int InsertHTKVNodeIntoLL(HashTabKV kv_to_insert,
+static int32_t InsertHTKVNodeIntoLL(HashTabKV kv_to_insert,
                                 LinkedList *insertchain_ptr) {
   LinkedList insertchain = *insertchain_ptr;
   HashTabKVPtr kv_to_insert_heap;
@@ -209,13 +209,13 @@ static HashTabKVPtr search(HashTabKey_t key,
   return NULL;  // Key not found.
 }
 
-int HTInsert(HashTable table,
+int32_t HTInsert(HashTable table,
                     HashTabKV kv_to_insert,
                     HashTabKV *old_kv_storage) {
   CPSize_t insertbucket;
   LinkedList insertchain;
   HashTabKVPtr p;
-  int insert_status;
+  int32_t insert_status;
 
   assert(table != NULL);
   ResizeHashtable(table);
@@ -257,7 +257,7 @@ int HTInsert(HashTable table,
   return 2;
 }
 
-int HTLookup(HashTable table,
+int32_t HTLookup(HashTable table,
                     HashTabKey_t key,
                     HashTabKV *keyvalue) {
   assert(table != NULL);
@@ -296,7 +296,7 @@ int HTLookup(HashTable table,
   return 1;
 }
 
-int HTRemove(HashTable table,
+int32_t HTRemove(HashTable table,
                         HashTabKey_t key,
                         HashTabKV *keyvalue) {
   assert(table != NULL);
@@ -351,7 +351,7 @@ HTIter MakeHTIter(HashTable table) {
   }
 
   // if the hash table is empty, the iterator is immediately invalid,
-  // since it can't point to anything.
+  // since it can't point32_tto anything.
   if (table->ht_size == 0) {
     iter->valid = false;
     iter->ht = table;
@@ -360,7 +360,7 @@ HTIter MakeHTIter(HashTable table) {
   }
 
   // initialize the iterator.  there is at least one element in the
-  // table, so find the first element and point the iterator at it.
+  // table, so find the first element and point32_tthe iterator at it.
   iter->valid = true;
   iter->ht = table;
   for (i = 0; i < table->bucket_count; i++) {
@@ -389,7 +389,7 @@ void DiscardHTIter(HTIter iter) {
   free(iter);
 }
 
-int HTIncrementIter(HTIter iter) {
+int32_t HTIncrementIter(HTIter iter) {
   assert(iter != NULL);
 
   assert(iter->bucket_iter != NULL);
@@ -411,7 +411,7 @@ int HTIncrementIter(HTIter iter) {
   }
 
   // Case 2/3
-  for (int i = iter->bucket + 1; i < iter->ht->bucket_count; i++) {
+  for (int32_t i = iter->bucket + 1; i < iter->ht->bucket_count; i++) {
     if (LLSize(iter->ht->buckets[i]) > 0) {
       free(iter->bucket_iter);
       iter->bucket_iter = LLGetIter(iter->ht->buckets[i], 0UL);
@@ -428,12 +428,12 @@ int HTIncrementIter(HTIter iter) {
   return 0;
 }
 
-int HTIterValid(HTIter iter) {
+int32_t HTIterValid(HTIter iter) {
   assert(iter != NULL);
   return iter->valid ? 0 : 1;
 }
 
-int HTIterKV(HTIter iter, HashTabKV *keyvalue) {
+int32_t HTIterKV(HTIter iter, HashTabKV *keyvalue) {
   assert(iter != NULL);
 
   HashTabKVPtr p;
@@ -448,9 +448,9 @@ int HTIterKV(HTIter iter, HashTabKV *keyvalue) {
   return 1;
 }
 
-int HTIterDel(HTIter iter, HashTabKV *keyvalue) {
+int32_t HTIterDel(HTIter iter, HashTabKV *keyvalue) {
   HashTabKV kv;
-  int res, retval;
+  int32_t res, retval;
 
   assert(iter != NULL);
 

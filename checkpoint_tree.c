@@ -2,24 +2,27 @@
 
 #include "checkpoint_tree.h"
 
-int CreateCpTreeNode(char *cpt_name,
-                     CpTreeNodePtr parent_node,
-                     CpTreeNodePtr ret) {
+int32_t CreateCpTreeNode(char *cpt_name,
+                         CpTreeNodePtr parent_node,
+                         CpTreeNodePtr *ret) {
   CpTreeNodePtr new_node;
 
-  int num_attempts = NUMBER_ATTEMPTS;
+  int32_t num_attempts = NUMBER_ATTEMPTS;
   ATTEMPT((new_node = malloc(sizeof(CpTreeNode))), NULL, num_attempts)
-  
-  new_node->parent_node = parent_node;
-  new_node->cpt_name    = cpt_name;
-
+  num_attempts = NUMBER_ATTEMPTS;
+  ATTEMPT((new_node->cpt_name = malloc(sizeof(char) * strlen(cpt_name + 1))), NULL, num_attempts)
   num_attempts = NUMBER_ATTEMPTS;
   ATTEMPT((new_node->children = MakeLinkedList()), NULL, num_attempts)
 
+  new_node->parent_node = parent_node;
+  strcpy(new_node->cpt_name, cpt_name);
+  
+  *ret = new_node;
   return CREATE_TREE_SUCCESS;
 }
 
-int InsertCpTreeNode(CpTreeNodePtr cpt_node, CpTreeNodePtr to_insert) {
+int32_t InsertCpTreeNode(CpTreeNodePtr cpt_node, CpTreeNodePtr to_insert) {
+  if (DEBUG) {printf("adding %s as a child of %s\n", to_insert->cpt_name, cpt_node->cpt_name);}
   if (cpt_node == NULL) {
     if (DEBUG) {
       printf("Error, given a null node to insert into\n");
@@ -35,10 +38,12 @@ int InsertCpTreeNode(CpTreeNodePtr cpt_node, CpTreeNodePtr to_insert) {
     }
     return INSERT_NODE_ERROR;
   }
-
+printf("pushing checkpoint  %s to %s\n",
+             cpt_node->cpt_name,
+             to_insert->cpt_name);
   if (!LLPush(cpt_node->children, (LinkedListPayload)(to_insert))) {
     if (DEBUG) {
-      printf("Error pushing checkpoint %s to %s\n",
+      printf("Error pushing checkpoint  %s to %s\n",
              cpt_node->cpt_name,
              to_insert->cpt_name);
     }
@@ -48,7 +53,7 @@ int InsertCpTreeNode(CpTreeNodePtr cpt_node, CpTreeNodePtr to_insert) {
   return INSERT_NODE_SUCCESS;  // If we've reached here, no errors occured.
 }
 
-int FindCpt(CpTreeNodePtr curr_node, char *cpt_name, CpTreeNodePtr ret) {
+int32_t FindCpt(CpTreeNodePtr curr_node, char *cpt_name, CpTreeNodePtr *ret) {
   if (curr_node == NULL) {  // We can be quite certain cpt_name is not here!
     return FIND_CPT_ABSENT;
   }
@@ -61,14 +66,14 @@ int FindCpt(CpTreeNodePtr curr_node, char *cpt_name, CpTreeNodePtr ret) {
     return FIND_CPT_ERROR;
   }
 
-  if (curr_node->cpt_name == cpt_name) {  // The cpt we're looking for is here!
+  if (strcmp(curr_node->cpt_name, cpt_name) == 0) {  // The cpt we're looking for is here!
     if (DEBUG) {
-      printf("Success! cpt_name %s found at address %x\n",
+      printf("\t\tSuccess! cpt_name %s found at address %x\n",
              cpt_name,
              (unsigned int)curr_node);
     }
 
-    *ret = *curr_node;
+    *ret = curr_node;
     return FIND_CPT_SUCCESS;
   }
 
@@ -86,20 +91,20 @@ int FindCpt(CpTreeNodePtr curr_node, char *cpt_name, CpTreeNodePtr ret) {
   }
 
   LLIter children_iter;
-  ssize_t num_attempts = NUMBER_ATTEMPTS;
+  uint32_t num_attempts = NUMBER_ATTEMPTS;
   ATTEMPT((children_iter = LLGetIter(curr_node->children, 0)),
           NULL,
           num_attempts)
   
-  CpTreeNode curr_child;
-  ssize_t num_children_unchecked = LLSize(curr_node->children);
-  int res;
+  CpTreeNodePtr curr_child;
+  uint32_t num_children_unchecked = LLSize(curr_node->children);
+  int32_t res;
   while (num_children_unchecked > 0) {
     LLIterPayload(children_iter, (LinkedListPayload)(&curr_child));
     // We have to check two things:
     
     // 1. Does this child node have the name we want?
-    if (curr_child.cpt_name == cpt_name) {
+    if (strcmp(curr_child->cpt_name, cpt_name) == 0) {
       *ret = curr_child;  // Copy into return param
       LLIterFree(children_iter);
       return FIND_CPT_SUCCESS;
@@ -120,10 +125,13 @@ int FindCpt(CpTreeNodePtr curr_node, char *cpt_name, CpTreeNodePtr ret) {
   LLIterFree(children_iter);
   // We checked the current node, and all it's children. The cpt
   // must not have been created before.
+  if (DEBUG) {
+    printf("\t\tThe desired checkpoint could not be found\n");
+  }
   return FIND_CPT_ABSENT;
 }
 
-int FreeCpTreeNode(CpTreeNodePtr curr_node) {
+int32_t FreeCpTreeNode(CpTreeNodePtr curr_node) {
   if (curr_node == NULL) {
     return TREE_FREE_OK;
   }
@@ -132,6 +140,7 @@ int FreeCpTreeNode(CpTreeNodePtr curr_node) {
   if (curr_node->children != NULL) {  // free this nodes children
     FreeLinkedList(curr_node->children, &FreeCpTreeNode);
   }
+
   free(curr_node);
   return TREE_FREE_OK;
 }

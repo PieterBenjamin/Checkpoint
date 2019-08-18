@@ -20,7 +20,7 @@
 // This struct will maintain the relationship between all the
 // checkpoints known in the current directory. It will have to
 // be loaded from/written to disk every time an instance
-// of the checkpoint program is run.
+// of the checkpoint  program is run.
 typedef struct cpt_tree {
   // A pointer to the parent of this subtree.
   // The (absolute) root parent should be NULL.
@@ -43,11 +43,11 @@ typedef struct cpt_tree {
 //  - MEM_ERR: on a memory error
 //
 //  - CREATE_TREE_SUCCESS: if allocation was successful.
-int CreateCpTreeNode(char *cpt_name,
+int32_t CreateCpTreeNode(char *cpt_name,
                      CpTreeNodePtr parent_node,
-                     CpTreeNodePtr ret);
+                     CpTreeNodePtr *ret);
 
-// Inserts a Checkpoint node into the given node.
+// Inserts a checkpoint  node into the given node.
 //
 // Returns:
 //
@@ -56,9 +56,9 @@ int CreateCpTreeNode(char *cpt_name,
 // - INSERT_NODE_SUCCESS: if insert was successfull.
 //
 // - INSERT_NODE_ERROR: if something went wrong.
-int InsertCpTreeNode(CpTreeNodePtr cpt_node, CpTreeNodePtr to_insert);
+int32_t InsertCpTreeNode(CpTreeNodePtr cpt_node, CpTreeNodePtr to_insert);
 
-// Attempts to find the checkpoint with the name @cpt_name
+// Attempts to find the checkpoint  with the name @cpt_name
 // in the tree @cpt_tree. If successful, a pointer to the struct
 // containing the same name will be returned through @ret.
 // Returns:
@@ -71,7 +71,7 @@ int InsertCpTreeNode(CpTreeNodePtr cpt_node, CpTreeNodePtr to_insert);
 //                      below (and including) cpt_tre with a matching name.
 //
 //  - FIND_CPT_ERROR: when a generic error occurs while searching.
-int FindCpt(CpTreeNodePtr cpt_tree, char *cpt_name, CpTreeNodePtr ret);
+int32_t FindCpt(CpTreeNodePtr cpt_tree, char *cpt_name, CpTreeNodePtr *ret);
 
 // Frees a given node and all it's children.
 //
@@ -80,6 +80,6 @@ int FindCpt(CpTreeNodePtr cpt_tree, char *cpt_name, CpTreeNodePtr ret);
 //  - MEM_ERROR: on a memory error
 //
 //  - TREE_FREE_OK: if all went well
-int FreeCpTreeNode(CpTreeNodePtr curr_node);
+int32_t FreeCpTreeNode(CpTreeNodePtr curr_node);
 
 #endif  // _CHECKPOINT_TREE_H_

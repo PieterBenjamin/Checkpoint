@@ -33,65 +33,65 @@ static void Usage(void);
 static void CheckMacros();
 
 // This method does two things:
-//  1. Ensures the hidden checkpoint dir is setup for storage
+//  1. Ensures the hidden checkpoint  dir is setup for storage
 //  2. Loads the data stored in the dir into the tables (nothing is loaded
 //     if the dir has not yet been setup)
 // Returns:
 //  SETUP_SUCCESS - if all went well, and an error code otherwise.
-static int Setup(CheckPointLogPtr cpt_log);
+static int32_t Setup(CheckPointLogPtr cpt_log);
 
 // Checks that the supplied command is valid.
 //
 // Returns:
 //
 //  -1: if the command is invalid, and an index otherwise.
-static int IsValidCommand(char *command);
+static int32_t IsValidCommand(char *command);
 
-// Creates the checkpoint name @cpt for the file
+// Creates the checkpoint  name @cpt for the file
 // @filename, and saves it in @cpt_log.
 //
 // Returns:
 //  CREATE_CPT_SUCCESS - if all went well, and an error code otherwise.
-static int CreateCheckpoint(char *cpt_name,
+static int32_t CreateCheckpoint(char *cpt_name,
                             char *filename,
                             CheckPointLogPtr cpt_log);
 
-// Adds a checkpoint with the knowledge that this file has not yet had
-// a checkpoint stored.
-static int AddCheckpointNewFile(char *cpt_name,
+// Adds a checkpoint  with the knowledge that this file has not yet had
+// a checkpoint  stored.
+static int32_t AddCheckpointNewFile(char *cpt_name,
                                 char *src_filename,
                                 HashTabKey_t src_filename_hash,
                                 CheckPointLogPtr cpt_log);
 
-// Adds a checkpoint with the knowledge that this file has had
-// a checkpoint stored.
-static int AddCheckpointExistingFile(char *cpt_name,
+// Adds a checkpoint  with the knowledge that this file has had
+// a checkpoint  stored.
+static int32_t AddCheckpointExistingFile(char *cpt_name,
                                      char *src_filename,
                                      HashTabKey_t src_filename_hash,
                                      CheckPointLogPtr cpt_log);
 
-// Changes to the checkpoint @cpt_name. Note that this will
+// Changes to the checkpoint  @cpt_name. Note that this will
 // overwrite/delete the current copy of the file for the
-// given checkpoint name, and replace it with the version
+// given checkpoint  name, and replace it with the version
 // saved for the checkpoint.
 //
 // Returns:
 //  SWAPTO_SUCCESS if all went well, and SWAPTO_* error code otherwise.
-static int SwapTo(char *cpt_name, CheckPointLogPtr cpt_log);
+static int32_t SwapTo(char *cpt_name, CheckPointLogPtr cpt_log);
 
-// Deletes the checkpoint @cpt_name (modifies cpt_log).
+// Deletes the checkpoint  @cpt_name (modifies cpt_log).
 // Also removes any saved info on @checkpointname from the working dir.
 //
 // Returns:
 //  DELETE_SUCCESS if all went well, and DELETE_* error code otherwise.
-static int Delete(char *cpt_name, CheckPointLogPtr cpt_log);
+static int32_t Delete(char *cpt_name, CheckPointLogPtr cpt_log);
 
 // Prints a list of all current checkpoints (and their corresponding
 // files) to stdout.
 //
 // Returns:
 //  The number of checkpoints stored for this dir.
-static int List(CheckPointLogPtr cpt_log);
+static int32_t List(CheckPointLogPtr cpt_log);
 
 // Helper method to List. Prints all the parent/children
 // lists for a given tree.
@@ -103,7 +103,7 @@ static int List(CheckPointLogPtr cpt_log);
 // - PRINT_ERR: if any other errors arise
 //
 // - The number of checkpoints in @tree otherwise.
-static int PrintTree(CpTreeNodePtr tree);
+static int32_t PrintTree(CpTreeNodePtr tree);
 
 // Handles freeing all the tables and their contents.
 static void FreeCheckPointLog(CheckPointLogPtr cpt_log);
