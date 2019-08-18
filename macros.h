@@ -5,6 +5,7 @@
 #ifndef _MACROS_H_
 #define _MACROS_H_
 
+// Is it always true that all files need these? Importing without care can lead to naming conflicts. 
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,13 +23,15 @@
 #define CP_LOG_FILE "./.cpt_/CpLog"
 // ********************************
 
-#define NUMBER_ATTEMPTS 20 // Number of times to try again on an out-of-mem err
+// Number of times to try again on an out-of-mem err
+#define NUMBER_ATTEMPTS 20 
 #ifdef DEBUG_
   #define DEBUG true
 #else
   #define DEBUG false
 #endif
 
+// Number of buckets the Hashtables should be initialized with
 #define INITIAL_BUCKET_COUNT 10
 // Various error/info codes
 #define MEM_ERR -333
@@ -51,6 +54,7 @@
 // Used when an implication that should have been true
 // ends up false.
 #define PREEXISTING(msg, name, res)\
+  // what does 2 mean here? What should it be the result of? 
   if (res == 2) {\
     if (DEBUG) {\
       printf("\tConflicting state:\n"\
