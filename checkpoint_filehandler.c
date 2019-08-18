@@ -263,6 +263,8 @@ static int32_t ReadTreeBucket(FILE *f, uint32_t offset, HashTabKV *kv) {
   if (res == READ_ERROR || res == MEM_ERR) {
     return READ_ERROR;
   }
+  node->parent_node = NULL;  // root node
+  
   bytes_read += res;
 
   kv->key = bh.key;
@@ -345,6 +347,8 @@ static int32_t ReadTreeChildren(FILE *f,
 
     curr_child->parent_node = parent;
     LLAppend(parent->children, curr_child);
+
+    offset += sizeof(int32_t);
   }
 
   return bytes_read;
@@ -603,7 +607,7 @@ static int32_t WriteTree(FILE *f, uint32_t offset, CpTreeNodePtr curr_node) {
   // Thus, the length of a "prefix" for a file_treenode can be expressed as
   self_content_length = (sizeof(uint32_t) * (2 + num_children))
                       + (sizeof(char)  * name_len);
-                      
+
   res = WriteChildren(curr_node,
                       &children_offsets,
                       offset + self_content_length,
@@ -701,7 +705,7 @@ static int32_t WriteChildren(CpTreeNodePtr curr_node,
   return child_bytes_written;
 }
 
-int32_t WriteSrcToCheckpoint(char *src_filename, char *cpt_name) {
+int32_t WriteSrcCheckpoint(char *src_filename, char *cpt_name, bool dir) {
   FILE *cpt_file, *src_file;
   size_t dir_len = strlen(WORKING_DIR), name_len = strlen(cpt_name);
   char cpt_filename[dir_len + name_len + 2];
@@ -710,33 +714,37 @@ int32_t WriteSrcToCheckpoint(char *src_filename, char *cpt_name) {
   cpt_filename[dir_len + 1] = '\0';
   strcat(cpt_filename, cpt_name);
 
-  if ((cpt_file = fopen(cpt_filename, "wb")) == NULL) {
+  if ((cpt_file = fopen(cpt_filename, dir ? "wb" : "r")) == NULL) {
     fprintf(stderr,
             "\tERROR opening file %s%s.\n"\
             "\tAborting program now.\n", WORKING_DIR, cpt_filename);
     return -2;
   }
 
-  if ((src_file = fopen(src_filename, "r")) == NULL) {
+  if ((src_file = fopen(src_filename, dir ? "r" : "wb")) == NULL) {
     fprintf(stderr,
             "\tERROR opening file %s.\n\tProgram will now be aborted.\n",
             src_filename);
     return -2;
   }
 
+  return dir ? WriteAToB(src_file, cpt_file) : WriteAToB(cpt_file, src_file);
+}
+
+static int32_t WriteAToB(FILE *a, FILE *b) {
   char buffer[1024];
   size_t bytes;
 
-  if (fseek(src_file, 0, SEEK_SET) != 0) {
-    return -1;
+  if (fseek(a, 0, SEEK_SET) != 0) {
+    return FILE_WRITE_ERR;
   }
-  if (fseek(cpt_file, 0, SEEK_SET) != 0) {
-    return -1;
+  if (fseek(b, 0, SEEK_SET) != 0) {
+    return FILE_WRITE_ERR;
   }
   
-  while (0 < (bytes = fread(buffer, 1, sizeof(buffer), src_file))) {
-      fwrite(buffer, 1, bytes, cpt_file);
+  while (0 < (bytes = fread(buffer, 1, sizeof(buffer), a))) {
+      fwrite(buffer, 1, bytes, b);
   }
 
-  return 0;
+  return FILE_WRITE_SUCCESS;
 }

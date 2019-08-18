@@ -14,11 +14,19 @@
 #define CREATE_CPT_ERROR -1
 
 #define SWAPTO_SUCCESS 0
+#define SWAPTO_ERROR -1
 #define DELETE_SUCCESS 0
 
 #define LIST_ERR -1
 
 #define PRINT_ERR -1
+
+// Different options require a different number of args.
+#define CHECK_ARG_COUNT(c)\
+  if (argc != c) {\
+    fprintf(stderr, "invalid # of commands: got %d, expected %d\n", argc, c);\
+    return EXIT_FAILURE;\
+  }
 
 const char *valid_commands[] = {"create", "swapto", "delete", "list"};
 
@@ -77,7 +85,7 @@ static int32_t AddCheckpointExistingFile(char *cpt_name,
 //
 // Returns:
 //  SWAPTO_SUCCESS if all went well, and SWAPTO_* error code otherwise.
-static int32_t SwapTo(char *cpt_name, CheckPointLogPtr cpt_log);
+static int32_t SwapTo(char *src_filename, char *cpt_name, CheckPointLogPtr cpt_log);
 
 // Deletes the checkpoint  @cpt_name (modifies cpt_log).
 // Also removes any saved info on @checkpointname from the working dir.

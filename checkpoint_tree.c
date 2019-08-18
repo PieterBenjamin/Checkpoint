@@ -38,9 +38,7 @@ int32_t InsertCpTreeNode(CpTreeNodePtr cpt_node, CpTreeNodePtr to_insert) {
     }
     return INSERT_NODE_ERROR;
   }
-printf("pushing checkpoint  %s to %s\n",
-             cpt_node->cpt_name,
-             to_insert->cpt_name);
+  
   if (!LLPush(cpt_node->children, (LinkedListPayload)(to_insert))) {
     if (DEBUG) {
       printf("Error pushing checkpoint  %s to %s\n",

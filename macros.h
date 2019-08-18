@@ -14,12 +14,14 @@
 #include <stdbool.h>
 
 #define STORED_CPTS_FILE "./.cpt_bkpng/strd_cpts"
+
 // ********************************
 // TAKE CARE THAT THE DIRS MATCH
 // IN THE NEXT TWO MACROS
 #define WORKING_DIR "./.cpt_"
 #define CP_LOG_FILE "./.cpt_/CpLog"
 // ********************************
+
 #define NUMBER_ATTEMPTS 20 // Number of times to try again on an out-of-mem err
 #ifdef DEBUG_
   #define DEBUG true
@@ -36,12 +38,6 @@
 #define READ_SUCCESS 0
 #define READ_ERROR -1
 
-// Different options require a different number of args.
-#define CHECK_ARG_COUNT(c)\
-  if (argc != c) {\
-    fprintf(stderr, "invalid # of commands: got %d, expected %d\n", argc, c);\
-    return EXIT_FAILURE;\
-  }
 // Some actions may have memory issues. In the case that
 // such an error occurs, we want the option to repeat the
 // action a certain number of times in further attempts

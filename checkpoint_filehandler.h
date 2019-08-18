@@ -17,6 +17,7 @@
 
 // THIS VALUE MUST BE NEGATIVE
 #define FILE_WRITE_ERR -1
+#define FILE_WRITE_SUCCESS 0
 
 #define CHECK_HASHTABLE_LENGTH(x)\
   if (x == MEM_ERR || x == FILE_WRITE_ERR) { return FILE_WRITE_ERR; }
@@ -188,17 +189,28 @@ static int32_t WriteChildren(CpTreeNodePtr curr_node,
                              uint32_t offset,
                              FILE *f);
 
-// Stores the state of @src_filename in @cpt_filename.
+// Responsible for writing one file to another. If {@dir == true}, will write
+// the contents of @src_filename into a checkpoint file for @cpt_name. Otherwise,
+// will write the contents of @cpt_name into @src_filename.
 //
 // Returns:
 //
 //  -2: if a reading ERROR occured.
 //
-//  -1: if a writing ERROR occured.
+//  FILE_WRITE_ERR: if a writing ERROR occured.
 //
-//   0: if all went well.
-int32_t WriteSrcToCheckpoint(char *src_filename, char *cpt_filename);
+//  FILE_WRITE_SUCCESS: if all went well.
+int32_t WriteSrcCheckpoint(char *src_filename, char *cpt_name, bool dir);
 
+
+// Helper method to WriteSrcCheckpoint, writes the contents of file @a to
+// file @b.
+//
+// Returns:
+//  - FILE_WRITE_ERR: if any errors occur in the i/o process.
+//
+//  - FILE_WRITE_SUCCESS: if all went well. 
+static int32_t WriteAToB(FILE *a, FILE *b);
 #pragma pack(pop)
 
 #endif  // _CHECKPOINT_FILEHANDLER_H_
