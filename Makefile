@@ -29,7 +29,7 @@ checkpoint_debug: checkpoint*
 exec: checkpoint.o checkpoint_tree.o checkpoint_filehandler.o $(DS)
 	$(CCOMP) -o Checkpoint checkpoint.o checkpoint_tree.o checkpoint_filehandler.o $(DS)
 
-
+# by convention, clean also deletes created executables (since you generally don't want to push those to a repository). I suggest making this a separate command. 
 clean:
 	$(RM) ./DataStructs/*.o
 	$(RM) ./*.o
