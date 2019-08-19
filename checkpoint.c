@@ -14,6 +14,8 @@ static void CheckMacros() {
   assert(FILE_WRITE_ERR < 0);
 }
 
+// you should have defined in the header that this is the file containing main. Otherwise, non-implementers or extenders wouldn't know what to run. 
+// This is more my opinion though
 int32_t main (int32_t argc, char *argv[]) {
   CheckPointLog cpt_log;
   int32_t res, setup;
@@ -25,6 +27,8 @@ int32_t main (int32_t argc, char *argv[]) {
 
   // The return value of IsValidCommand will be treated as an
   // index in a switch statement to determine what to do.
+  // Shouldn't this be DetermineCommand or something, with the edge case that it's invalid? 
+  // it just doesn't feel like a good idea to have the side affect be so important. 
   if ((res = IsValidCommand(argv[1])) == INVALID_COMMAND) {
     fprintf(stderr, "invalid command: %s\n", argv[1]);
     fprintf(stderr, "Valid commands are %s, %s, %s, and %s.\n",
@@ -73,6 +77,7 @@ int32_t main (int32_t argc, char *argv[]) {
   }
 
   if (WriteCheckPointLog(&cpt_log) == FILE_WRITE_ERR) {
+    // every error is completely unrecoverable? Seems dangerous, but I understand the reason. 
     printf("Error writing tables. This dir is now considered corrupt.\n");
     FreeCheckPointLog(&cpt_log);
     return EXIT_FAILURE;
@@ -83,6 +88,7 @@ int32_t main (int32_t argc, char *argv[]) {
 }
 
 static int32_t Setup(CheckPointLogPtr cpt_log) {
+  // what happened to inline debug statements? 
   if (DEBUG) {
     printf("Setting up working dir . . .\n");
   }
@@ -178,6 +184,7 @@ static int32_t CreateCheckpoint(char *src_filename,
     // No I/O error - we can now update our mapping
     num_attempts = NUMBER_ATTEMPTS;
     char *cpt_name_copy1, *cpt_name_copy2;
+    // who exactly is responsible for freeing this malloc? Is it just assumed that any names within the HT are malloc'd? 
     ATTEMPT((cpt_name_copy1 = malloc((sizeof(char) * strlen(cpt_name)) + 1)),
              NULL,
              num_attempts)
@@ -186,7 +193,7 @@ static int32_t CreateCheckpoint(char *src_filename,
     kv.key = src_filename_hash;
     kv.value = cpt_name_copy1;
     ATTEMPT((HTInsert(cpt_log->src_filehash_to_cptname, kv, &storage)), 0 , num_attempts)
-  
+    // This is a lot of complex, repeated code. Maybe abstract into a helper function? 
     ATTEMPT((cpt_name_copy2 = malloc((sizeof(char) * strlen(cpt_name)) + 1)),
              NULL,
              num_attempts)
@@ -201,7 +208,7 @@ static int32_t CreateCheckpoint(char *src_filename,
   } else if (res == 1) {  // The client is trying to overwrite data! Stop them!
     fprintf(stderr,
            "\tSorry, checkpoint  name [%s] already exists. Try another.\n"\
-           "\t(maybe %s2)\n", cpt_name, cpt_name);
+           "\t(maybe %s_2)\n", cpt_name, cpt_name);
     return CREATE_CPT_ERROR;
   }
 
@@ -233,11 +240,11 @@ static int32_t AddCheckpointExistingFile(char *cpt_name,
   }
   root_node = (CpTreeNodePtr)storage.value;
 
-   // Now we need to lookup the current checkpoint  for the src file
-   num_attempts = NUMBER_ATTEMPTS;
-   ATTEMPT((res = HTLookup(cpt_log->src_filehash_to_cptname,
-                           src_filename_hash,
-                           &storage)),
+  // Now we need to lookup the current checkpoint  for the src file
+  num_attempts = NUMBER_ATTEMPTS;
+  ATTEMPT((res = HTLookup(cpt_log->src_filehash_to_cptname,
+                          src_filename_hash,
+                          &storage)),
            -1,
            num_attempts)
   if (res == 0) {
@@ -261,6 +268,7 @@ static int32_t AddCheckpointExistingFile(char *cpt_name,
   }
 
   // Let's make space for the new node
+  printf("%x\n", parent_node);
   CreateCpTreeNode(cpt_name, parent_node, &new_node);
 
   return InsertCpTreeNode(parent_node, new_node) == INSERT_NODE_SUCCESS ?
@@ -304,9 +312,11 @@ static int32_t AddCheckpointNewFile(char *cpt_name,
   // Now attempt to make space on the heap for a checkpoint  name.
   new_tree->cpt_name = malloc(sizeof(char) * (strlen(cpt_name) + 1));
   if (new_tree->cpt_name == NULL) {
+    // Why is this the only method you check for Mem_err? Serious oversight. 
     if (DEBUG) {
       printf("Ran out of memory to hold %s\n", cpt_name);
     }
+    // shouldn't you free src_name_copy as well? 
     free(new_tree);
     return MEM_ERR;
   }
@@ -387,7 +397,6 @@ static int32_t Back(char *src_filename, CheckPointLogPtr cpt_log) {
   HashTabKV kv = {key, cpt_name_copy};
   num_attempts = 20;
   HTInsert(cpt_log->src_filehash_to_cptname, kv, &storage);
-  WriteSrcCheckpoint(src_filename, cpt_name_copy, false);
   return BACK_SUCCESS;
 }
 
@@ -406,6 +415,7 @@ static int32_t SwapTo(char *src_filename, char *cpt_name, CheckPointLogPtr cpt_l
   kv.key = HashFunc(src_filename, strlen(src_filename));
   kv.value = malloc(sizeof(char) *(strlen(storage.value) + 1));
   strcpy(kv.value, storage.value);
+  //hard-coded success value
   if (HTInsert(cpt_log->src_filehash_to_cptname, kv, &storage) != 2) {
     return SWAPTO_ERROR;
   }
@@ -460,7 +470,7 @@ static int32_t FreeTreeCpHash(CheckPointLogPtr cpt_log, CpTreeNodePtr curr_node)
   
   // Do the same for all children.
   if (curr_node->children != NULL) {
-    int32_t num_children = LLSize(curr_node->children), num_attempts = NUMBER_ATTEMPTS;
+    int32_t num_children = LLSize(curr_node->children), /* why this part, why inline? */num_attempts = NUMBER_ATTEMPTS;
     if (num_children > 0) {
       LLIter it;
       CpTreeNodePtr curr_child;
@@ -497,6 +507,7 @@ static int32_t List(CheckPointLogPtr cpt_log) {
   // Note that children will be listed after their parents, and those
   // same children will be listed on a new line if they in turn have
   // children
+  // shouldn't this be in the header? 
 
   // To achieve the above output, we'll only need one iterator. Since
   // all hashtables should share the keyset, one iterator should be enough
@@ -508,6 +519,7 @@ static int32_t List(CheckPointLogPtr cpt_log) {
           num_attempts)
 
   num_files = HTSize(cpt_log->dir_tree);
+  // weird place to check this. Don't other functions guarantee this rep. Invariant? 
   if (num_files != HTSize(cpt_log->src_filehash_to_filename) ||
       num_files != HTSize(cpt_log->src_filehash_to_cptname)) {
       if (DEBUG) {
@@ -520,6 +532,7 @@ static int32_t List(CheckPointLogPtr cpt_log) {
   if (DEBUG) { printf("printing the state of %d files\n", num_files); }
   for (i = 0; i < num_files; i++) {
     // Get current key.
+    // Why not >=? 
     if (HTIterKV(it, &f_name) == 0 && num_files > 1) {
       if (DEBUG) {
         printf("ERROR: could obtain HTKV List\n");
