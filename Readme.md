@@ -7,3 +7,6 @@ addresses that problem using the appropriately versatile language C.
 
 
 Some DataStructs/ files come from my [Systems Programming class](https://courses.cs.washington.edu/courses/cse333/19su/) and reflect my own original work (in addition to the skeleton that was provided to me by the course)
+  
+  
+![Alt-Text](https://github.com/PieterBenjamin/Checkpoint/blob/master/imgs/use%20example.png)
