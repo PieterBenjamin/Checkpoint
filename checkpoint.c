@@ -261,7 +261,6 @@ static int32_t AddCheckpointExistingFile(char *cpt_name,
   }
 
   // Let's make space for the new node
-  printf("%x\n", parent_node);
   CreateCpTreeNode(cpt_name, parent_node, &new_node);
 
   return InsertCpTreeNode(parent_node, new_node) == INSERT_NODE_SUCCESS ?
