@@ -387,6 +387,7 @@ static int32_t Back(char *src_filename, CheckPointLogPtr cpt_log) {
   HashTabKV kv = {key, cpt_name_copy};
   num_attempts = 20;
   HTInsert(cpt_log->src_filehash_to_cptname, kv, &storage);
+  WriteSrcCheckpoint(src_filename, cpt_name_copy, false);
   return BACK_SUCCESS;
 }
 
