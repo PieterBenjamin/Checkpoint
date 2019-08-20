@@ -21,6 +21,7 @@ int32_t ReadCheckPointLog(CheckPointLogPtr cpt_log) {
       cpt_log->src_filehash_to_cptname  == NULL ||
       cpt_log->cpt_namehash_to_cptfilename == NULL ||
       cpt_log->dir_tree == NULL) {
+    // is one of these not guaranteed to cause a null pointer exception? Possibly split these up, or have a helper method for this. 
     FreeHashTable(cpt_log->src_filehash_to_filename, &FileHandlerNullFree);
     FreeHashTable(cpt_log->src_filehash_to_cptname, &FileHandlerNullFree);
     FreeHashTable(cpt_log->cpt_namehash_to_cptfilename, &FileHandlerNullFree);
@@ -54,12 +55,14 @@ int32_t ReadCheckPointLog(CheckPointLogPtr cpt_log) {
   }
 
   // Read the header;
+  // no u;
   CpLogFileHeader header;
   int32_t res, offset = 0;
   if (fseek(f, 0, SEEK_SET) != 0) {
     if (DEBUG) {
       printf("\t\tERROR: could not fseek to start of %s\n", CP_LOG_FILE);
     }
+    // close the file on error, same for all other reads. 
     return READ_ERROR;
   }
   if (fread(&header, sizeof(CpLogFileHeader), 1, f) != 1) {
@@ -68,6 +71,7 @@ int32_t ReadCheckPointLog(CheckPointLogPtr cpt_log) {
     }
     return READ_ERROR;
   }
+// This should really be a constant, since it's set in an entirely separate function
   if (header.magic_number != 0xcafe00d) {
     if (DEBUG) {
       printf("\t\tERROR: corrupted file. Header is %x\n", header.magic_number);
@@ -348,6 +352,7 @@ static int32_t ReadTreeChildren(FILE *f,
     curr_child->parent_node = parent;
     LLAppend(parent->children, curr_child);
 
+    // why? There should really be a better way to do this, like tracking children offsets from the start of the children, rather than the start of the offsets array. This is just confusing. 
     offset += sizeof(int32_t);
   }
 
@@ -377,7 +382,7 @@ int32_t WriteCheckPointLog(CheckPointLogPtr cpt_log) {
   int32_t offset = 0, src_name, src_cptname, cptname, dirtree;
   // Before we advance, we will intentionally corrupt the header
   // so that if we crash while writing this file, nobody thinks
-  // the file is valid.
+  // the file is valid. (Good catch! This could have caused some weird errors) 
   ZeroHeader(&header);
 
   if (fseek(f, 0, SEEK_SET) != 0) {
@@ -441,6 +446,7 @@ int32_t WriteCheckPointLog(CheckPointLogPtr cpt_log) {
     printf("\t\t\t%d bytes written to log file\n", offset);
   }
   header.magic_number = ((uint32_t)0xCAFE00D);
+  // a checksum isn't just a size, it's the sum of bits in the file. It's much more likely to get an incorrect file of the same size than it is to get an incorrect file with the same bitwise sum. 
   header.checksum = offset;
   header.src_filehash_to_filename_size = src_name;
   header.src_filehash_to_cptname_size = src_cptname;
@@ -448,6 +454,7 @@ int32_t WriteCheckPointLog(CheckPointLogPtr cpt_log) {
   header.dir_tree_size = dirtree;
 
   if (fseek(f, 0, SEEK_SET) != 0) {
+    // no file closing? 
     return FILE_WRITE_ERR;
   }
   if (fwrite(&header, sizeof(CpLogFileHeader), 1, f) != 1) {
@@ -564,6 +571,7 @@ static int32_t WriteTreeBucket(FILE *f, uint32_t offset, HashTabKV kv) {
 
   // Before we do anything, let's write the bucket header
   // (which is just a key) and increment the offset.
+  // bucket header is written in both this and string bucket write. Why not in WriteHashTable? 
   BucketHeader bh = {kv.key};
   if (fseek(f, offset, SEEK_SET) != 0) {
     if (DEBUG) {
@@ -581,6 +589,7 @@ static int32_t WriteTreeBucket(FILE *f, uint32_t offset, HashTabKV kv) {
   }
   offset += sizeof(BucketHeader);
 
+  // no error checking the result of write tree? Hell, this would return positive even if it errored (a very bad thing) 
   return sizeof(BucketHeader) + WriteTree(f, offset, curr_node);
 }
 
@@ -593,7 +602,7 @@ static int32_t WriteTree(FILE *f, uint32_t offset, CpTreeNodePtr curr_node) {
   uint32_t children_offsets[num_children];
 
   // A file_treenode is written the following way:
-  //
+  // please put this in the header
   // [name_len][num_children]["name\0"][children_offsets][      children      ]
   //
   // name_len and num_children are type ssize_t
