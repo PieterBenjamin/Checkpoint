@@ -36,6 +36,7 @@ typedef int32_t (*read_bucket_fn)(FILE *f,
 
 // This is a struct which will hold pointers to all the data structs
 // required to maintain this VC system.
+// shouldn't this struct be 'struct checkpoint_log' by convention? 
 typedef struct cpt_manager {
   // Key: the hash of a source filename.
   // Value: a pointer to a string on the heap (the filename).
@@ -90,6 +91,7 @@ typedef struct bucket_header {
   uint64_t key;
 } BucketHeader;
 
+// so I assume this goes after the bucket header, only for string buckets? You should document that. 
 typedef struct string_bucket_header {
   uint32_t len;
 } StringBucketHeader;
@@ -113,6 +115,7 @@ typedef struct file_tree_header {
 //  - READ_ERROR - if an ERROR occurs, in which case errno should be checked.
 int32_t ReadCheckPointLog(CheckPointLogPtr cpt_log);
 
+// documentation? 
 static int32_t ReadHashTable(FILE *f,
                              uint32_t offset,
                              HashTable table,
@@ -184,6 +187,7 @@ static int32_t WriteTree(FILE *f, uint32_t offset, CpTreeNodePtr curr_node);
 
 // Helper method to WriteTree, writes the contents of all of curr_nodes
 // children to file @f, starting at offset @offset
+// returns? Errors? 
 static int32_t WriteChildren(CpTreeNodePtr curr_node,
                              uint32_t *children_offsets,
                              uint32_t offset,
