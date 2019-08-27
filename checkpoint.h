@@ -50,38 +50,28 @@ static void CheckMacros();
 //  2. Loads the data stored in the dir into the tables (nothing is loaded
 //     if the dir has not yet been setup)
 // Returns:
-//  SETUP_SUCCESS - if all went well, and an error code otherwise.
+//
+//  - SETUP_SUCCESS - if all went well, and an error code otherwise.
 static int32_t Setup(CheckPointLogPtr cpt_log);
 
-// Checks that the supplied command is valid.
+// Checks that the supplied (null terminated) command is valid.
 //
 // Returns:
 //
 //  -1: if the command is invalid, and an index otherwise.
 static int32_t IsValidCommand(char *command);
 
-// Creates the checkpoint  name @cpt for the file
-// @filename, and saves it in @cpt_log.
+// Creates the checkpoint  name @cpt for the file @filename, and
+// saves it in @cpt_log. This includes updating the mapping for
+// current cpt (which wich will be set to @cpt_name for @filename).
+//
 //
 // Returns:
-//  CREATE_CPT_SUCCESS - if all went well, and an error code otherwise.
+//
+//  - CREATE_CPT_SUCCESS - if all went well, and an error code otherwise.
 static int32_t CreateCheckpoint(char *cpt_name,
-                            char *filename,
-                            CheckPointLogPtr cpt_log);
-
-// Adds a checkpoint  with the knowledge that this file has not yet had
-// a checkpoint  stored.
-static int32_t AddCheckpointNewFile(char *cpt_name,
-                                char *src_filename,
-                                HashTabKey_t src_filename_hash,
+                                char *filename,
                                 CheckPointLogPtr cpt_log);
-
-// Adds a checkpoint  with the knowledge that this file has had
-// a checkpoint  stored.
-static int32_t AddCheckpointExistingFile(char *cpt_name,
-                                     char *src_filename,
-                                     HashTabKey_t src_filename_hash,
-                                     CheckPointLogPtr cpt_log);
 
 // Changes to the checkpoint  @cpt_name. Note that this will
 // overwrite/delete the current copy of the file for the
@@ -90,7 +80,9 @@ static int32_t AddCheckpointExistingFile(char *cpt_name,
 //
 // Returns:
 //  SWAPTO_SUCCESS if all went well, and SWAPTO_* error code otherwise.
-static int32_t SwapTo(char *src_filename, char *cpt_name, CheckPointLogPtr cpt_log);
+static int32_t SwapTo(char *src_filename,
+                      char *cpt_name,
+                      CheckPointLogPtr cpt_log);
 
 // Attempts to go backwards one step up the checkpoint tree stored for
 // @src_filename.
@@ -119,10 +111,10 @@ static int32_t Delete(char *src_filename, CheckPointLogPtr cpt_log);
 static int32_t FreeTreeCpHash(CheckPointLogPtr cpt_log, CpTreeNodePtr curr_node);
 
 // Prints a list of all current checkpoints (and their corresponding
-// files) to stdout.
+// files) to stdout, in the order their keys are stored in the
+// dir_tree hashtable.
 //
-// Returns:
-//  The number of checkpoints stored for this dir.
+// Returns: The number of checkpoints stored for this dir.
 static int32_t List(CheckPointLogPtr cpt_log);
 
 // Helper method to List. Prints all the parent/children

@@ -114,11 +114,9 @@ int32_t FindCpt(CpTreeNodePtr curr_node, char *cpt_name, CpTreeNodePtr *ret) {
   }
 
   LLIterFree(children_iter);
+
   // We checked the current node, and all it's children. The cpt
   // must not have been created before.
-  if (DEBUG) {
-    printf("\t\tThe desired checkpoint could not be found\n");
-  }
   return FIND_CPT_ABSENT;
 }
 

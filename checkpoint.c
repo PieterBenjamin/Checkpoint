@@ -5,6 +5,21 @@
 #define VALID_COMMAND_COUNT 5
 #define BUFFSIZE 1024  // Hopefully larger than will ever be necessary
 
+// Adds a checkpoint  with the knowledge that this file has not yet had
+// a checkpoint  stored.
+static int32_t AddCheckpointNewFile(char *cpt_name,
+                                    char *src_filename,
+                                    HashTabKey_t src_filename_hash,
+                                    CheckPointLogPtr cpt_log);
+
+// Adds a checkpoint  with the knowledge that this file has had
+// a checkpoint  stored.
+static int32_t AddCheckpointExistingFile(char *cpt_name,
+                                         char *src_filename,
+                                         HashTabKey_t src_filename_hash,
+                                         CheckPointLogPtr cpt_log);
+
+
 static void CheckMacros() {
   assert(INVALID_COMMAND < 0);  // Must be neg. since an index is expected.
   assert(SETUP_SUCCESS != SETUP_DIR_ERROR);
