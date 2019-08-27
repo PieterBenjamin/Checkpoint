@@ -10,7 +10,7 @@ int32_t CreateCpTreeNode(char *cpt_name,
   int32_t num_attempts = NUMBER_ATTEMPTS;
   ATTEMPT((new_node = malloc(sizeof(CpTreeNode))), NULL, num_attempts)
   num_attempts = NUMBER_ATTEMPTS;
-  ATTEMPT((new_node->cpt_name = malloc(sizeof(char) * strlen(cpt_name + 1))), NULL, num_attempts)
+  ATTEMPT((new_node->cpt_name = malloc(sizeof(char) * (strlen(cpt_name) + 1))), NULL, num_attempts)
   num_attempts = NUMBER_ATTEMPTS;
   ATTEMPT((new_node->children = MakeLinkedList()), NULL, num_attempts)
 
@@ -22,7 +22,6 @@ int32_t CreateCpTreeNode(char *cpt_name,
 }
 
 int32_t InsertCpTreeNode(CpTreeNodePtr cpt_node, CpTreeNodePtr to_insert) {
-  if (DEBUG) {printf("adding %s as a child of %s\n", to_insert->cpt_name, cpt_node->cpt_name);}
   if (cpt_node == NULL) {
     if (DEBUG) {
       printf("Error, given a null node to insert into\n");
@@ -48,7 +47,7 @@ int32_t InsertCpTreeNode(CpTreeNodePtr cpt_node, CpTreeNodePtr to_insert) {
     return INSERT_NODE_ERROR;
   }
 
-  return INSERT_NODE_SUCCESS;  // If we've reached here, no errors occured.
+  return INSERT_NODE_SUCCESS;
 }
 
 int32_t FindCpt(CpTreeNodePtr curr_node, char *cpt_name, CpTreeNodePtr *ret) {
@@ -100,13 +99,16 @@ int32_t FindCpt(CpTreeNodePtr curr_node, char *cpt_name, CpTreeNodePtr *ret) {
   int32_t res;
   while (num_children_unchecked > 0) {
     LLIterPayload(children_iter, (LinkedListPayload)(&curr_child));
-    if ((res = FindCpt(curr_child, cpt_name, ret)) == FIND_CPT_SUCCESS) {
+    res = FindCpt(curr_child, cpt_name, ret);
+
+    if (res == FIND_CPT_SUCCESS) {
       LLIterFree(children_iter);
       return FIND_CPT_SUCCESS;
     } else if (res == FIND_CPT_ERROR) {
       LLIterFree(children_iter);
       return FIND_CPT_ERROR;
     }
+    
     LLIterAdvance(children_iter);
     num_children_unchecked--;
   }
