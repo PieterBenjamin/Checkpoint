@@ -11,9 +11,9 @@
 #define INSERT_NODE_SUCCESS 0
 #define INSERT_NODE_ERROR -1
 
-#define FIND_CPT_SUCCESS 123
-#define FIND_CPT_ABSENT  321
-#define FIND_CPT_ERROR   -123
+#define FIND_CPT_SUCCESS 1
+#define FIND_CPT_ABSENT  2
+#define FIND_CPT_ERROR   -1
 
 #define TREE_FREE_OK 0
 
@@ -28,9 +28,10 @@ typedef struct cpt_tree {
   // A pointer to a string on the heap storing
   // the name of this checkpoint.
   char *cpt_name;
-  // A pointer to a LinkedList on the heap. This
+  // A pointer to a llhead struct on the heap. This
   // Linkedlist is composed of pointers on the heap
-  // to other cpt_tree structs which
+  // to other cpt_tree structs which represent any
+  // checkpoints created after the current cp "cpt_name".
   LinkedList children;
 } CpTreeNode, *CpTreeNodePtr;
 
