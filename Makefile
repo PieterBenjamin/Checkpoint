@@ -4,9 +4,9 @@ CCOMP = gcc -Wall -g -std=c11
 
 DS = HashTable.o LinkedList.o
 
-all: linkedlist hashtable checkpoint exec clean 
+all: linkedlist hashtable checkpoint exec 
 
-debug: linkedlist hashtable checkpoint_debug exec clean 
+debug: linkedlist hashtable checkpoint_debug exec 
 
 linkedlist: DataStructs/LinkedList.h DataStructs/LinkedList.c
 	$(CCOMP) -c DataStructs/LinkedList.c
@@ -28,8 +28,10 @@ checkpoint_debug: checkpoint*
 
 exec: checkpoint.o checkpoint_tree.o checkpoint_filehandler.o $(DS)
 	$(CCOMP) -o Checkpoint checkpoint.o checkpoint_tree.o checkpoint_filehandler.o $(DS)
-
+	$(RM) ./DataStructs/*.o
+	$(RM) ./*.o
 
 clean:
+	$(RM) Checkpoint
 	$(RM) ./DataStructs/*.o
 	$(RM) ./*.o
