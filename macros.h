@@ -22,13 +22,15 @@
 #define CP_LOG_FILE "./.cpt_/CpLog"
 // ********************************
 
-#define NUMBER_ATTEMPTS 20 // Number of times to try again on an out-of-mem err
+// Number of times to try again on an out-of-mem err
+#define NUMBER_ATTEMPTS 20
 #ifdef DEBUG_
   #define DEBUG true
 #else
   #define DEBUG false
 #endif
 
+// Number of buckets to initalize hashtables with
 #define INITIAL_BUCKET_COUNT 10
 // Various error/info codes
 #define MEM_ERR -333
@@ -50,8 +52,8 @@
   num_attempts_left = NUMBER_ATTEMPTS;
 // Used when an implication that should have been true
 // ends up false.
-#define PREEXISTING(msg, name, res)\
-  if (res == 2) {\
+#define PREEXISTING(msg, name, res, pre)\
+  if (res == pre) {\
     if (DEBUG) {\
       printf("\tConflicting state:\n"\
               "\t%s was not supposed to have a mapping to"\

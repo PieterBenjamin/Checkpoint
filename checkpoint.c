@@ -287,7 +287,8 @@ static int32_t AddCheckpointNewFile(char *cpt_name,
   ATTEMPT((res = HTInsert(cpt_log->src_filehash_to_filename,
                           keyval,
                           &storage)), -1, num_attempts)
-  PREEXISTING("\ta file name", src_filename, res)
+  // Hashtable returns 2 if a key already has a mapping
+  PREEXISTING("\ta file name", src_filename, res, 2)
 
 
   // Now add the mapping from the source file hash to the checkpoint
@@ -330,7 +331,8 @@ static int32_t AddCheckpointNewFile(char *cpt_name,
   ATTEMPT((res = HTInsert(cpt_log->dir_tree,
                           keyval,
                           &storage)), -1, num_attempts)
-  PREEXISTING("\ta LL of cpts", src_filename, res)
+  // Hashtable returns two if there was already a mapping
+  PREEXISTING("\ta LL of cpts", src_filename, res, 2)
   
   // Store the recorded cpt for the source file
   keyval.value = (char *)malloc(sizeof(char) * (strlen(cpt_name) + 1));
