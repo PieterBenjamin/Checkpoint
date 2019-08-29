@@ -428,6 +428,7 @@ static int32_t SwapTo(char *src_filename, char *cpt_name, CheckPointLogPtr cpt_l
 
   if (HTLookup(cpt_log->cpt_namehash_to_cptfilename, key, &storage) == 0) {
     printf("Sorry, %s isn't a valid checkpoint name.\n", cpt_name);
+    return SWAPTO_SUCCESS;  // This is a success as far as SwapTo is concerned.
   }
 
   kv.key = HashFunc(src_filename, strlen(src_filename));
