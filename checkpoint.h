@@ -35,6 +35,10 @@
 
 const char *valid_commands[] = {"create", "back", "swapto", "delete", "list"};
 
+// Entry point to the program. 1st elem of argv is not ever looked at (expected
+// to be the standard first elem of argv).
+int32_t main (int32_t argc, char *argv[]);
+
 // Prints usage to stderr
 static void Usage(void);
 
@@ -59,7 +63,7 @@ static int32_t Setup(CheckPointLogPtr cpt_log);
 // Returns:
 //
 //  -1: if the command is invalid, and an index otherwise.
-static int32_t IsValidCommand(char *command);
+static int32_t DetermineCommand(char *command);
 
 // Creates the checkpoint  name @cpt for the file @filename, and
 // saves it in @cpt_log. This includes updating the mapping for

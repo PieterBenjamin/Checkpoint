@@ -19,6 +19,12 @@ static int32_t AddCheckpointExistingFile(char *cpt_name,
                                          HashTabKey_t src_filename_hash,
                                          CheckPointLogPtr cpt_log);
 
+// Mallocs a copy of @value_to_copy, and then updates the mapping for the
+// given table. Returns mem error if any occur, and the result of HTInsert
+// otherwise.
+static int32_t UpdateMapping(HashTabKey_t key,
+                             char *value_to_copy,
+                             HashTable table);
 
 static void CheckMacros() {
   assert(INVALID_COMMAND < 0);  // Must be neg. since an index is expected.
@@ -38,9 +44,9 @@ int32_t main (int32_t argc, char *argv[]) {
 
   CheckMacros();
 
-  // The return value of IsValidCommand will be treated as an
+  // The return value of DetermineCommand will be treated as an
   // index in a switch statement to determine what to do.
-  if ((res = IsValidCommand(argv[1])) == INVALID_COMMAND) {
+  if ((res = DetermineCommand(argv[1])) == INVALID_COMMAND) {
     fprintf(stderr, "invalid command: %s\n", argv[1]);
     fprintf(stderr, "Valid commands are %s, %s, %s, and %s.\n",
             valid_commands[0], valid_commands[1], valid_commands[2],
@@ -150,7 +156,7 @@ static int32_t CreateCheckpoint(char *src_filename,
   // Update mapping from cpt_name_hash to cpt_file,
   // and update the mapping from src_filename to cpt_name.
   HashTabKey_t cpt_filename_hash = HashFunc((unsigned char *)cpt_name,
-                                              strlen(cpt_name));
+                                            strlen(cpt_name));
   if (DEBUG) {
     printf("\tcreating checkpoint  %s for %s\n", cpt_name, src_filename);
   }
@@ -190,37 +196,41 @@ static int32_t CreateCheckpoint(char *src_filename,
       return CREATE_CPT_ERROR;
     }
 
-    // No I/O error - we can now update our mapping
-    num_attempts = NUMBER_ATTEMPTS;
-    char *cpt_name_copy1, *cpt_name_copy2;
-    ATTEMPT((cpt_name_copy1 = malloc((sizeof(char) * strlen(cpt_name)) + 1)),
-             NULL,
-             num_attempts)
-    num_attempts = NUMBER_ATTEMPTS;
-    strcpy(cpt_name_copy1, cpt_name);
-    kv.key = src_filename_hash;
-    kv.value = cpt_name_copy1;
-    ATTEMPT((HTInsert(cpt_log->src_filehash_to_cptname, kv, &storage)), 0 , num_attempts)
-  
-    ATTEMPT((cpt_name_copy2 = malloc((sizeof(char) * strlen(cpt_name)) + 1)),
-             NULL,
-             num_attempts)
-    num_attempts = NUMBER_ATTEMPTS;
-    strcpy(cpt_name_copy2, cpt_name);
-    kv.key = cpt_filename_hash;
-    kv.value = cpt_name_copy2;
-    num_attempts = NUMBER_ATTEMPTS;
-    ATTEMPT((HTInsert(cpt_log->cpt_namehash_to_cptfilename, kv, &storage)),
-            0,
-            num_attempts)
+    // No I/O error - we can now update our mappings
+    if (UpdateMapping(src_filename_hash,
+                      cpt_name,
+                      cpt_log->src_filehash_to_cptname) == MEM_ERR) {
+        return MEM_ERR;
+    }
+    if (UpdateMapping(cpt_filename_hash,
+                      cpt_name,
+                      cpt_log->cpt_namehash_to_cptfilename) == MEM_ERR) {
+        return MEM_ERR;
+    }
   } else if (res == 1) {  // The client is trying to overwrite data! Stop them!
     fprintf(stderr,
            "\tSorry, checkpoint  name [%s] already exists. Try another.\n"\
-           "\t(maybe %s2)\n", cpt_name, cpt_name);
+           "\t(maybe %s_2)\n", cpt_name, cpt_name);
     return CREATE_CPT_ERROR;
   }
 
   return CREATE_CPT_SUCCESS;
+}
+
+static int32_t UpdateMapping(HashTabKey_t key,
+                             char *value_to_copy,
+                             HashTable table) {
+  HashTabKV kv, storage;
+  char *value_copy;
+  int32_t num_attempts = NUMBER_ATTEMPTS;
+
+  ATTEMPT((value_copy = malloc(sizeof(char) * (strlen(value_to_copy) + 1))),
+          NULL,
+          num_attempts)
+  strcpy(value_copy, value_to_copy);
+  kv.key = key;
+  kv.value = value_copy;
+  return HTInsert(table, kv, &storage);
 }
 
 static int32_t AddCheckpointExistingFile(char *cpt_name,
@@ -248,13 +258,13 @@ static int32_t AddCheckpointExistingFile(char *cpt_name,
   }
   root_node = (CpTreeNodePtr)storage.value;
 
-   // Now we need to lookup the current checkpoint  for the src file
-   num_attempts = NUMBER_ATTEMPTS;
-   ATTEMPT((res = HTLookup(cpt_log->src_filehash_to_cptname,
-                           src_filename_hash,
-                           &storage)),
-           -1,
-           num_attempts)
+  // Now we need to lookup the current checkpoint  for the src file
+  num_attempts = NUMBER_ATTEMPTS;
+  ATTEMPT((res = HTLookup(cpt_log->src_filehash_to_cptname,
+                          src_filename_hash,
+                          &storage)),
+          -1,
+          num_attempts)
   if (res == 0) {
     if (DEBUG) {
       printf("STATE ERROR: no mapping from filename hash to curr checkpoint\n");
@@ -477,7 +487,8 @@ static int32_t FreeTreeCpHash(CheckPointLogPtr cpt_log, CpTreeNodePtr curr_node)
   
   // Do the same for all children.
   if (curr_node->children != NULL) {
-    int32_t num_children = LLSize(curr_node->children), num_attempts = NUMBER_ATTEMPTS;
+    int32_t num_children = LLSize(curr_node->children);
+    int32_t num_attempts = NUMBER_ATTEMPTS;
     if (num_children > 0) {
       LLIter it;
       CpTreeNodePtr curr_child;
@@ -501,20 +512,6 @@ static int32_t List(CheckPointLogPtr cpt_log) {
   HTIter it;
   HashTabKV f_name, cpt_tree, cptname;
 
-  // We'll be printing a list of the stored checkpoints on a per-file basis.
-  // The format is as follows:
-  // scrc_filename_1 (curr_cpt_name)
-  //    init: cptname
-  //    parent_cpt: child1, child2, childn
-  //    . . .
-  //    cptname_n: children
-  // . . .
-  // src_filename_n (curr_cpt_name)
-  //    . . .
-  // Note that children will be listed after their parents, and those
-  // same children will be listed on a new line if they in turn have
-  // children
-
   // To achieve the above output, we'll only need one iterator. Since
   // all hashtables should share the keyset, one iterator should be enough
   // to get all the keys we need.
@@ -533,7 +530,6 @@ static int32_t List(CheckPointLogPtr cpt_log) {
       return LIST_ERR;
   }
 
-  char *fname;
   if (DEBUG) { printf("printing the state of %d files\n", num_files); }
   for (i = 0; i < num_files; i++) {
     // Get current key.
@@ -646,7 +642,7 @@ static void FreeCheckPointLog(CheckPointLogPtr cpt_log) {
   FreeHashTable(cpt_log->dir_tree, &FreeCpTreeNode);
 }
 
-static int32_t IsValidCommand(char *command) {
+static int32_t DetermineCommand(char *command) {
   int32_t i;
 
   // Compare commmand to all valid commands
