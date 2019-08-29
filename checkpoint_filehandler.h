@@ -40,7 +40,7 @@ typedef int32_t (*read_bucket_fn)(FILE *f,
 
 // This is a struct which will hold pointers to all the data structs
 // required to maintain this VC system.
-typedef struct cpt_manager {
+typedef struct checkpoint_log {
   // Key: the hash of a source filename.
   // Value: a pointer to a string on the heap (the filename).
   HashTable src_filehash_to_filename;
@@ -117,6 +117,12 @@ typedef struct file_tree_header {
 //  - READ_ERROR - if an ERROR occurs, in which case errno should be checked.
 int32_t ReadCheckPointLog(CheckPointLogPtr cpt_log);
 
+// Reads a HashTable in from file @f, starting at offstet @f, into table @table,
+// using function @fn to read buckets in.
+//
+// Returns:
+//
+//  - The number of bytes read, and READ_ERROR if any errors occured.
 static int32_t ReadHashTable(FILE *f,
                              uint32_t offset,
                              HashTable table,
@@ -127,9 +133,21 @@ static int32_t ReadHashTable(FILE *f,
 // to strings on the heap.
 static int32_t ReadStringBucket(FILE *f, uint32_t offset, HashTabKV *kv);
 
-
+// Reads in a tree bucket starting from offset @offset. Creates a tree
+// on the heap, and stores the pointer in @kv.value. The key is
+// also read in during this method and stored in @kv.key.
+//
+// Returns;
+//
+//  - The number of bytes read, and READ_ERROR if any occured
 static int32_t ReadTreeBucket(FILE *f, uint32_t offset, HashTabKV *kv);
 
+// Reads in a Tree node from offset @offset. @curr_node is assumed to already
+// be a valid pointer to a CpTreeNode, whose fields will be adjust appropriately.
+//
+// Returns:
+//
+//  - The number of bytes read, and READ_ERROR if any errors occur.
 static int32_t ReadTreeNode(FILE *f, uint32_t offset, CpTreeNodePtr curr_node);
 
 // Helper method to ReadTreeNode. Reads the children of @parent into
@@ -183,7 +201,7 @@ static int32_t WriteStringBucket(FILE *f, uint32_t offset, HashTabKV kv);
 //  - The number of bytes written for curr_node(and it's children).
 static int32_t WriteTreeBucket(FILE *f, uint32_t offset, HashTabKV kv);
 
-// Writes a CpTreeNodePtr to file @f. Returns the size of the tree (in bytes).
+// Writes a CpTreeNodePtr to file @f.
 // A file_treenode is written the following way:
 //
 // [name_len][num_children][name][children_offsets][        children         ]
@@ -196,11 +214,17 @@ static int32_t WriteTreeBucket(FILE *f, uint32_t offset, HashTabKV kv);
 // num_children is 0, in which case there will not be any children_offsets
 // or children field written.
 //
-// Thus, the length of a "prefix" for a file_treenode can be expressed as 
+// Returns;
+//
+//  - The number of bytes written, and FILE_WRITE_ERR or MEM_ERR if one occured.
 static int32_t WriteTree(FILE *f, uint32_t offset, CpTreeNodePtr curr_node);
 
 // Helper method to WriteTree, writes the contents of all of curr_nodes
 // children to file @f, starting at offset @offset
+//
+// Returns:
+//
+//  - The number of bytes written, and FILE_WRITE_ERR if any errors occur.
 static int32_t WriteChildren(CpTreeNodePtr curr_node,
                              uint32_t *children_offsets,
                              uint32_t offset,
