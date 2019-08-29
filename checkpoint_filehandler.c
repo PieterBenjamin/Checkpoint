@@ -68,7 +68,7 @@ int32_t ReadCheckPointLog(CheckPointLogPtr cpt_log) {
     }
     return READ_ERROR;
   }
-  if (header.magic_number != 0xcafe00d) {
+  if (header.magic_number != MAGIC_NUMBER) {
     if (DEBUG) {
       printf("\t\tERROR: corrupted file. Header is %x\n", header.magic_number);
     }
@@ -348,6 +348,9 @@ static int32_t ReadTreeChildren(FILE *f,
     curr_child->parent_node = parent;
     LLAppend(parent->children, curr_child);
 
+    // The next "offset" is the next spot in the array of children offsets.
+    // View the header for a visual clarification, but in English - it's the
+    // next spot where we can find where the next child is.
     offset += sizeof(int32_t);
   }
 
@@ -398,7 +401,7 @@ int32_t WriteCheckPointLog(CheckPointLogPtr cpt_log) {
                             cpt_log->src_filehash_to_filename,
                             offset,
                             &WriteStringBucket);
-  CHECK_HASHTABLE_LENGTH(src_name)
+  CHECK_HASHTABLE_LENGTH(src_name, f)  // Checks for writing/mem error
   offset += src_name;
   if (DEBUG) {
     printf("\t\tWrote %d bytes for src_filehash_to_filename\n", src_name);
@@ -408,7 +411,7 @@ int32_t WriteCheckPointLog(CheckPointLogPtr cpt_log) {
                                cpt_log->src_filehash_to_cptname,
                                offset,
                                &WriteStringBucket);
-  CHECK_HASHTABLE_LENGTH(src_cptname)   
+  CHECK_HASHTABLE_LENGTH(src_cptname, f)   
   offset += src_cptname;
   if (DEBUG) {
     printf("\t\tWrote %d bytes for src_filehash_to_cptname\n", src_cptname);
@@ -418,7 +421,7 @@ int32_t WriteCheckPointLog(CheckPointLogPtr cpt_log) {
                            cpt_log->cpt_namehash_to_cptfilename,
                            offset,
                            &WriteStringBucket);
-  CHECK_HASHTABLE_LENGTH(cptname);
+  CHECK_HASHTABLE_LENGTH(cptname, f);
   offset += cptname;   
   if (DEBUG) {
     printf("\t\tWrote %d bytes for cpt_namehash_to_cptfilename\n", cptname);
@@ -431,7 +434,7 @@ int32_t WriteCheckPointLog(CheckPointLogPtr cpt_log) {
                            cpt_log->dir_tree,
                            offset,
                            &WriteTreeBucket);
-  CHECK_HASHTABLE_LENGTH(dirtree);
+  CHECK_HASHTABLE_LENGTH(dirtree, f);
   offset += dirtree;
   if (DEBUG) {
     printf("\t\tWrote %d bytes for dir_tree\n", dirtree);
@@ -440,7 +443,7 @@ int32_t WriteCheckPointLog(CheckPointLogPtr cpt_log) {
   if (DEBUG) {
     printf("\t\t\t%d bytes written to log file\n", offset);
   }
-  header.magic_number = ((uint32_t)0xCAFE00D);
+  header.magic_number = ((uint32_t)MAGIC_NUMBER);
   header.checksum = offset;
   header.src_filehash_to_filename_size = src_name;
   header.src_filehash_to_cptname_size = src_cptname;
@@ -581,7 +584,11 @@ static int32_t WriteTreeBucket(FILE *f, uint32_t offset, HashTabKV kv) {
   }
   offset += sizeof(BucketHeader);
 
-  return sizeof(BucketHeader) + WriteTree(f, offset, curr_node);
+  int32_t res = WriteTree(f, offset, curr_node);
+  if (res == FILE_WRITE_ERR || res == MEM_ERR) {
+    return FILE_WRITE_ERR;
+  }
+  return sizeof(BucketHeader) + res;
 }
 
 static int32_t WriteTree(FILE *f, uint32_t offset, CpTreeNodePtr curr_node) {
@@ -592,19 +599,6 @@ static int32_t WriteTree(FILE *f, uint32_t offset, CpTreeNodePtr curr_node) {
 
   uint32_t children_offsets[num_children];
 
-  // A file_treenode is written the following way:
-  //
-  // [name_len][num_children]["name\0"][children_offsets][      children      ]
-  //
-  // name_len and num_children are type ssize_t
-  // name is a char array (which omits the null terminating byte)
-  // children_offsets is an array of uint32_t values
-  //
-  // It's impossible to tell anything about the length of children, unless
-  // num_children is 0, in which case there will not be any children_offsets
-  // or children field written.
-  //
-  // Thus, the length of a "prefix" for a file_treenode can be expressed as
   self_content_length = (sizeof(uint32_t) * (2 + num_children))
                       + (sizeof(char)  * name_len);
 

@@ -118,6 +118,20 @@ static int32_t FreeTreeCpHash(CheckPointLogPtr cpt_log, CpTreeNodePtr curr_node)
 // files) to stdout, in the order their keys are stored in the
 // dir_tree hashtable.
 //
+// We'll be printing a list of the stored checkpoints on a per-file basis.
+// The format is as follows:
+// src_filename_1 (curr_cpt_name)
+//    init: cptname
+//    parent_cpt: child1, child2, childn
+//    . . .
+//    cptname_n: children
+// . . .
+// src_filename_n (curr_cpt_name)
+//    . . .
+// Note that children will be listed after their parents, and those
+// same children will be listed on a new line if they in turn have
+// children
+//
 // Returns: The number of checkpoints stored for this dir.
 static int32_t List(CheckPointLogPtr cpt_log);
 

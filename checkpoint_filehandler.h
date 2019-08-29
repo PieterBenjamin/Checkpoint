@@ -14,13 +14,17 @@
 #include <errno.h>
 #include <sys/stat.h>
 
+#define MAGIC_NUMBER 0xCAFEF00D
 
 // THIS VALUE MUST BE NEGATIVE
 #define FILE_WRITE_ERR -1
 #define FILE_WRITE_SUCCESS 0
 
-#define CHECK_HASHTABLE_LENGTH(x)\
-  if (x == MEM_ERR || x == FILE_WRITE_ERR) { return FILE_WRITE_ERR; }
+#define CHECK_HASHTABLE_LENGTH(x, f)\
+  if (x == MEM_ERR || x == FILE_WRITE_ERR) {\
+    fclose(f);\
+    return FILE_WRITE_ERR;\
+ }
 
 #pragma pack(push,1)
 
@@ -179,7 +183,20 @@ static int32_t WriteStringBucket(FILE *f, uint32_t offset, HashTabKV kv);
 //  - The number of bytes written for curr_node(and it's children).
 static int32_t WriteTreeBucket(FILE *f, uint32_t offset, HashTabKV kv);
 
-// Writes a CpTreeNodePtr to file @f. Returns the size of the tree (in bytes). 
+// Writes a CpTreeNodePtr to file @f. Returns the size of the tree (in bytes).
+// A file_treenode is written the following way:
+//
+// [name_len][num_children][name][children_offsets][        children         ]
+//
+// name_len and num_children are type ssize_t
+// name is a char array (which omits the null terminating byte)
+// children_offsets is an array of uint32_t values
+//
+// It's impossible to tell anything about the length of children, unless
+// num_children is 0, in which case there will not be any children_offsets
+// or children field written.
+//
+// Thus, the length of a "prefix" for a file_treenode can be expressed as 
 static int32_t WriteTree(FILE *f, uint32_t offset, CpTreeNodePtr curr_node);
 
 // Helper method to WriteTree, writes the contents of all of curr_nodes
